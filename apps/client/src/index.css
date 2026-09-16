@@ -1,0 +1,290 @@
+@import url('https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@500;600;700&family=JetBrains+Mono:ital,wght@0,400;0,500;0,600;0,700;1,400&family=Noto+Sans+Bengali:wght@400;500;600;700&family=Source+Serif+4:opsz,wght@8..60,400;8..60,600&display=swap');
+@import "tailwindcss";
+
+/* ------------------------------------------------------------------
+   New Lab design system tokens (claude.ai/design project 79d4ec5b).
+   Raw ramps and semantic aliases live on :root so both the inline-style
+   primitives in components/ui and Tailwind utilities read the same values.
+   ------------------------------------------------------------------ */
+:root {
+  /* Monochrome. Every ramp is greyscale — hue carries no meaning here, so
+     status and emphasis are told by tonal value instead: the darker a thing
+     is, the more it wants attention. Ramp names are historic; only the values
+     changed, so the components reading them need no edit. */
+  --indigo-50: #F1EDE6; --indigo-100: #E7E2D8; --indigo-200: #D6D0C3; --indigo-300: #B0AA9C;
+  --indigo-400: #6E6A61; --indigo-500: #2F2C26; --indigo-600: #23211C; --indigo-700: #1A1815;
+  --indigo-800: #12100E; --indigo-900: #0A0908;
+
+  /* Was the money/green role. Now a lighter grey family, so a "settled" fill
+     stays readably distinct from a brand fill sitting beside it. */
+  --teal-50: #F2EFE8; --teal-100: #EBE7DE; --teal-200: #DAD5C9; --teal-300: #BEB8AA;
+  --teal-400: #8A8578; --teal-500: #4E4A42; --teal-600: #3D3A33; --teal-700: #2F2C26;
+  --teal-800: #23211C; --teal-900: #1A1815;
+
+  /* Neutrals. The whole palette is built on these now — every other ramp is
+     a slice of the same greyscale. */
+  --slate-50: #F1EDE6; --slate-100: #EAE6DD; --slate-200: #DED9CE; --slate-300: #C9C3B6;
+  --slate-400: #A8A296; --slate-500: #7A756B; --slate-600: #57534B; --slate-700: #3E3B35;
+  --slate-800: #292723; --slate-900: #1A1815;
+  --white: #FFFFFF;
+  /* Paper: the off-white every surface is drawn on. Pure white is kept only
+     for text and icons sitting on a dark fill, where it still needs to be. */
+  --paper: #F5F2EC;
+
+  /* Accents used only inside status/semantic roles */
+  --amber-100: #EDE9E0; --amber-500: #8A8578; --amber-700: #57534B;
+  --rose-100: #E3DDD2; --rose-500: #3D3A33; --rose-700: #000000;
+
+  /* Semantic aliases: reach for these, not the raw ramps */
+  --brand: var(--indigo-500);
+  --brand-hover: var(--indigo-600);
+  --brand-dark: var(--indigo-700);
+  --brand-light: var(--indigo-100);
+  --brand-tint: var(--indigo-50);
+  --brand-ring: rgba(26, 24, 21, .18);
+
+  --accent: var(--teal-500);
+  --accent-hover: var(--teal-600);
+  --accent-dark: var(--teal-700);
+  --accent-light: var(--teal-100);
+
+  --success: var(--teal-500); --success-strong: var(--teal-700); --success-bg: var(--teal-100);
+  --warning: var(--amber-500); --warning-strong: var(--amber-700); --warning-bg: var(--amber-100);
+  --danger: var(--rose-500); --danger-strong: var(--rose-700); --danger-bg: var(--rose-100);
+  --info: var(--brand); --info-bg: var(--brand-light);
+
+  --surface-page: #EFEBE3;
+  --surface-card: var(--paper);
+  --surface-muted: var(--slate-100);
+  --surface-sunken: var(--slate-50);
+  --surface-inverse: var(--slate-900);
+
+  --border-subtle: var(--slate-200);
+  --border-strong: var(--slate-300);
+  --border-card: #E5E0D6;
+
+  --text-heading: var(--slate-900);
+  --text-body: var(--slate-700);
+  /* Both of these sit on 12-13px text, so they are measured against the
+     darkest surface they are ever drawn on (--surface-muted, #EAE6DD) rather
+     than against paper: muted 6.14:1, faint 4.61:1, body 8.96:1. The old pair
+     (slate-500/slate-400) came in at 3.68 and 2.04 — legible on a good screen,
+     invisible on a laptop at an angle. */
+  --text-muted: var(--slate-600);
+  --text-faint: #69665E;
+  --text-onbrand: var(--white);
+  --text-link: var(--brand);
+  --text-link-hover: var(--brand-dark);
+
+  /* A sequential ramp, not a categorical one: with no hue to separate series,
+     four greys cannot be both well-spaced and all legible against the card, so
+     the two dark steps carry data and the pale ones stay decorative. Verified
+     with the dataviz validator — adjacent ΔE 19.4, above the 15 floor. */
+  --chart-1: #1A1815;
+  --chart-2: #4E4A42;
+  --chart-3: #868074;
+  --chart-4: #C3BCAF;
+  --chart-grid: var(--slate-200);
+  --chart-axis: var(--slate-600);
+  --chart-track: var(--slate-200);
+
+  /* Type */
+  /* Headings carry the character; everything else is set in the mono face. */
+  --font-display: 'Space Grotesk', 'Noto Sans Bengali', system-ui, sans-serif;
+  --font-sans: 'JetBrains Mono', 'Noto Sans Bengali', ui-monospace, 'SFMono-Regular', monospace;
+  --font-mono: 'JetBrains Mono', ui-monospace, 'SFMono-Regular', 'Menlo', monospace;
+
+  --text-11: 11px; --text-12: 12px; --text-13: 13px; --text-14: 14px; --text-16: 16px;
+  --text-18: 18px; --text-20: 20px; --text-24: 24px; --text-30: 30px; --text-36: 36px;
+
+  --lh-tight: 1.15; --lh-snug: 1.3; --lh-normal: 1.5; --lh-relaxed: 1.65;
+  --fw-regular: 400; --fw-medium: 500; --fw-semibold: 600; --fw-bold: 700;
+  --tracking-eyebrow: .35em; --tracking-caps: .06em; --tracking-tight: -.01em;
+
+  --type-page-title: var(--fw-bold) var(--text-24)/var(--lh-tight) var(--font-display);
+  --type-section-title: var(--fw-semibold) var(--text-18)/var(--lh-snug) var(--font-display);
+  /* 24px, not 30: the mono face is wide, so a long figure like ৳92,662.00 was
+     running to the edge of its tile and dwarfing the label above it. */
+  --type-metric: var(--fw-bold) var(--text-24)/var(--lh-tight) var(--font-sans);
+  --type-body: var(--fw-regular) var(--text-14)/var(--lh-normal) var(--font-sans);
+  --type-label: var(--fw-medium) var(--text-13)/var(--lh-normal) var(--font-sans);
+  --type-caption: var(--fw-regular) var(--text-12)/var(--lh-normal) var(--font-sans);
+  --type-tablehead: var(--fw-semibold) var(--text-11)/var(--lh-normal) var(--font-sans);
+
+  /* Spacing / metrics */
+  --space-0: 0; --space-1: 4px; --space-2: 8px; --space-3: 12px; --space-4: 16px; --space-5: 20px;
+  --space-6: 24px; --space-7: 28px; --space-8: 32px; --space-10: 40px; --space-12: 48px; --space-16: 64px;
+
+  --gap-grid: 16px;
+  --pad-card: 20px;
+  --pad-panel: 24px;
+  --pad-page-x: 40px;
+  --pad-page-y: 24px;
+  --sidebar-w: 272px;
+  --sidebar-w-collapsed: 80px;
+  --topbar-h: 68px;
+  --row-h: 52px;
+  --control-h: 40px;
+  --control-h-sm: 32px;
+
+  /* Radius / shadow */
+  --radius-xs: 6px; --radius-sm: 8px; --radius-md: 8px; --radius-lg: 8px; --radius-xl: 20px;
+  --radius-pill: 999px;
+
+  --shadow-none: none;
+  --shadow-xs: 0 1px 2px rgba(38, 33, 25, .05);
+  --shadow-sm: 0 1px 3px rgba(38, 33, 25, .06), 0 1px 2px rgba(38, 33, 25, .04);
+  --shadow-card: 0 1px 2px rgba(38, 33, 25, .04), 0 8px 24px -16px rgba(38, 33, 25, .10);
+  --shadow-pop: 0 18px 40px -12px rgba(38, 33, 25, .18);
+  --shadow-brand: 0 10px 24px -10px rgba(38, 33, 25, .35);
+  --ring-brand: 0 0 0 3px var(--brand-ring);
+  --ring-danger: 0 0 0 3px rgba(0, 0, 0, .16);
+
+  /* Motion */
+  --ease-standard: cubic-bezier(.2, .8, .2, 1);
+  --ease-out: cubic-bezier(0, 0, .2, 1);
+  --dur-fast: 120ms; --dur-base: 180ms; --dur-slow: 300ms;
+  --transition-control: background-color var(--dur-base) var(--ease-standard), color var(--dur-base) var(--ease-standard), border-color var(--dur-base) var(--ease-standard), box-shadow var(--dur-base) var(--ease-standard);
+}
+
+/* Tailwind utility surface over the same tokens, so `bg-brand`, `text-muted`,
+   `rounded-lg`, `shadow-card` etc. resolve to design-system values. */
+@theme inline {
+  --font-display: 'Space Grotesk', 'Noto Sans Bengali', system-ui, sans-serif;
+  --font-sans: 'JetBrains Mono', 'Noto Sans Bengali', ui-monospace, 'SFMono-Regular', monospace;
+  --font-mono: 'JetBrains Mono', ui-monospace, 'SFMono-Regular', 'Menlo', monospace;
+
+  --color-brand: var(--brand);
+  --color-brand-hover: var(--brand-hover);
+  --color-brand-dark: var(--brand-dark);
+  --color-brand-light: var(--brand-light);
+  --color-brand-tint: var(--brand-tint);
+  --color-accent: var(--accent);
+  --color-accent-dark: var(--accent-dark);
+  --color-accent-light: var(--accent-light);
+  --color-success: var(--success);
+  --color-success-strong: var(--success-strong);
+  --color-success-bg: var(--success-bg);
+  --color-warning: var(--warning);
+  --color-warning-strong: var(--warning-strong);
+  --color-warning-bg: var(--warning-bg);
+  --color-danger: var(--danger);
+  --color-danger-strong: var(--danger-strong);
+  --color-danger-bg: var(--danger-bg);
+  --color-muted: var(--text-muted);
+
+  --color-surface-page: var(--surface-page);
+  --color-surface-card: var(--surface-card);
+  --color-surface-muted: var(--surface-muted);
+  --color-surface-sunken: var(--surface-sunken);
+  --color-border-subtle: var(--border-subtle);
+  --color-border-strong: var(--border-strong);
+  --color-border-card: var(--border-card);
+  --color-heading: var(--text-heading);
+  --color-body: var(--text-body);
+  --color-faint: var(--text-faint);
+
+  --radius-xs: 6px;
+  --radius-sm: 8px;
+  --radius-md: 8px;
+  --radius-lg: 8px;
+  --radius-xl: 20px;
+
+  --shadow-xs: 0 1px 2px rgba(38, 33, 25, .05);
+  --shadow-card: 0 1px 2px rgba(38, 33, 25, .04), 0 8px 24px -16px rgba(38, 33, 25, .10);
+  --shadow-pop: 0 18px 40px -12px rgba(38, 33, 25, .18);
+  --shadow-brand: 0 10px 24px -10px rgba(44, 102, 192, .45);
+}
+
+/* ---- base ---- */
+*, *::before, *::after { box-sizing: border-box; }
+html, body { margin: 0; }
+
+body {
+  font: var(--type-body);
+  color: var(--text-body);
+  background: var(--surface-page);
+  min-height: 100vh;
+  -webkit-font-smoothing: antialiased;
+  text-rendering: optimizeLegibility;
+  text-wrap: pretty;
+}
+
+/* The page gutter tightens on phones — 40px of margin eats a small screen. */
+@media (max-width: 640px) {
+  :root { --pad-page-x: 16px; }
+}
+
+h1, h2, h3, h4, p { margin: 0; }
+
+[data-lang='bn'] body,
+[data-lang='bn'] button,
+[data-lang='bn'] input,
+[data-lang='bn'] textarea,
+[data-lang='bn'] select {
+  line-height: var(--lh-relaxed);
+}
+
+/* Page headings are styled inline with a size and weight but no family, so the
+   display face is applied here rather than at ~20 call sites. Letter-spacing
+   comes off a touch: Space Grotesk is wide, and headings sit tighter for it. */
+h1, h2, h3, h4, h5, h6 {
+  font-family: var(--font-display);
+  letter-spacing: var(--tracking-tight);
+}
+
+a { color: var(--text-link); text-decoration: none; transition: var(--transition-control); }
+a:hover { color: var(--text-link-hover); }
+
+button { font-family: inherit; }
+table { border-collapse: collapse; }
+
+#root { min-height: 100vh; }
+
+.tabular { font-variant-numeric: tabular-nums; }
+
+@keyframes nl-spin { to { transform: rotate(360deg); } }
+
+::-webkit-scrollbar { width: 8px; height: 8px; }
+::-webkit-scrollbar-track { background: transparent; }
+::-webkit-scrollbar-thumb { background: var(--slate-300); border-radius: var(--radius-pill); }
+::-webkit-scrollbar-thumb:hover { background: var(--slate-400); }
+
+/* Six dashboard tiles as two rows of three. Inline styles cannot carry a
+   media query, so the responsive collapse lives here: three across on a
+   desktop, two on a tablet, one on a phone — where three would squeeze a
+   figure like ৳92,662.00 past its tile. */
+.stat-grid-3 {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: var(--gap-grid);
+}
+@media (max-width: 1100px) {
+  .stat-grid-3 { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+}
+@media (max-width: 640px) {
+  .stat-grid-3 { grid-template-columns: 1fr; }
+}
+
+/* Responsive visibility.
+   These carry !important on purpose. The elements they hide set `display`
+   in an inline style object, and an inline style beats any class — which is
+   why `hidden lg:flex` on the sidebar and `lg:hidden` on the menu button
+   silently did nothing, leaving the 272px desktop sidebar on screen on
+   phones and the hamburger on screen on desktops. Overriding an inline
+   declaration is the one case !important is the correct tool. */
+.only-desktop { display: none !important; }
+.only-mobile { display: flex !important; }
+@media (min-width: 1024px) {
+  .only-desktop { display: flex !important; }
+  .only-mobile { display: none !important; }
+}
+
+/* The global search needs real width to be usable. On a phone the top bar is
+   already carrying menu, brand, bell, language and avatar, so the search pill
+   ends up a few characters wide and overlapping its neighbours — it is hidden
+   below 640px instead, where the nav drawer covers getting around. */
+.search-wrap { display: none !important; }
+@media (min-width: 640px) {
+  .search-wrap { display: block !important; }
+}

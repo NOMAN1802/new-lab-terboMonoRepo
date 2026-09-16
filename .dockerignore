@@ -1,0 +1,30 @@
+# Dependencies
+node_modules
+**/node_modules
+
+# Build outputs
+dist
+**/dist
+
+# Turbo cache
+.turbo
+**/.turbo
+
+# Test artefacts
+coverage
+**/coverage
+
+# Environment secrets
+.env
+.env.local
+.env.*.local
+**/.env
+**/.env.local
+
+# Version control
+.git
+.gitignore
+
+# Editor / OS
+.DS_Store
+*.log

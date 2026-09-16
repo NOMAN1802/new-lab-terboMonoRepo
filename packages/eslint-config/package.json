@@ -1,0 +1,16 @@
+{
+  "name": "@repo/eslint-config",
+  "version": "0.0.0",
+  "private": true,
+  "main": "index.js",
+  "files": [
+    "index.js",
+    "react.js",
+    "node.js"
+  ],
+  "peerDependencies": {
+    "eslint": "^9.39.1",
+    "typescript-eslint": "^8.46.4",
+    "@eslint/js": "^9.39.1"
+  }
+}

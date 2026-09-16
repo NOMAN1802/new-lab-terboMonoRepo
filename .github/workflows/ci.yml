@@ -1,0 +1,63 @@
+name: CI
+
+on:
+  push:
+    branches: ['**']
+  pull_request:
+    branches: ['**']
+
+env:
+  TURBO_TOKEN: ${{ secrets.TURBO_TOKEN }}
+  TURBO_TEAM: ${{ vars.TURBO_TEAM }}
+
+jobs:
+  ci:
+    name: Type-check · Lint · Test · Sonar
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Setup pnpm
+        uses: pnpm/action-setup@v4
+        with:
+          version: 9
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: pnpm
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Type check
+        run: pnpm turbo run type-check
+
+      - name: Lint
+        run: pnpm turbo run lint
+
+      - name: Test with coverage
+        run: pnpm test:coverage
+
+      - name: SonarQube scan — server
+        if: ${{ secrets.SONAR_TOKEN_SERVER != '' }}
+        uses: SonarSource/sonarqube-scan-action@v4
+        with:
+          projectBaseDir: apps/server
+        env:
+          SONAR_TOKEN: ${{ secrets.SONAR_TOKEN_SERVER }}
+          SONAR_HOST_URL: ${{ secrets.SONAR_HOST_URL }}
+
+      - name: SonarQube scan — client
+        if: ${{ secrets.SONAR_TOKEN_CLIENT != '' }}
+        uses: SonarSource/sonarqube-scan-action@v4
+        with:
+          projectBaseDir: apps/client
+        env:
+          SONAR_TOKEN: ${{ secrets.SONAR_TOKEN_CLIENT }}
+          SONAR_HOST_URL: ${{ secrets.SONAR_HOST_URL }}

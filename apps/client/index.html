@@ -1,0 +1,26 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>New Lab Diagnostic & Consultation Centre</title>
+    <style>
+      /* Shown before any JavaScript arrives. The centre runs on mobile data,
+         where an empty page reads as a broken one. React replaces this. */
+      body { margin: 0; background: #EFEBE3; }
+      .boot { min-height: 100vh; display: flex; align-items: center; justify-content: center; }
+      .boot__ring {
+        width: 26px; height: 26px; border-radius: 50%;
+        border: 2px solid #C9C3B6; border-top-color: #1A1815;
+        animation: boot-spin .9s linear infinite;
+      }
+      @keyframes boot-spin { to { transform: rotate(360deg); } }
+      @media (prefers-reduced-motion: reduce) { .boot__ring { animation: none; } }
+    </style>
+  </head>
+  <body>
+    <div id="root"><div class="boot"><div class="boot__ring"></div></div></div>
+    <script type="module" src="/src/main.tsx"></script>
+  </body>
+</html>

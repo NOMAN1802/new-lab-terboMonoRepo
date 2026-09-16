@@ -1,0 +1,42 @@
+# Production overrides — use with:
+#   docker compose -f docker-compose.yml -f docker-compose.prod.yml up -d
+#
+# Replace <REGISTRY> and <TAG> with your actual registry and image tag.
+
+name: new-lab
+
+services:
+  server:
+    build: !reset null
+    image: <REGISTRY>/new-lab-server:<TAG>
+    environment:
+      NODE_ENV: production
+    deploy:
+      resources:
+        limits:
+          cpus: "1"
+          memory: 512M
+    restart: always
+
+  client:
+    build: !reset null
+    image: <REGISTRY>/new-lab-client:<TAG>
+    deploy:
+      resources:
+        limits:
+          cpus: "0.5"
+          memory: 128M
+    restart: always
+
+  mongodb:
+    ports: !reset []
+    restart: always
+
+  # Remove SonarQube from production stack
+  sonarqube:
+    profiles:
+      - dev-only
+
+  sonardb:
+    profiles:
+      - dev-only

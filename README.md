@@ -1,0 +1,151 @@
+# New Lab Diagnostic & Consultation Centre
+
+Diagnostic Centre Billing & Management System (MERN). Patient registration,
+test booking, cash billing with partial payments, referrer discount and
+commission tracking, diagnostic report handling, and an admin-only financial
+module.
+
+```
+client/   React 19 + Vite + TypeScript + Tailwind + Redux Toolkit Query
+server/   Express + Mongoose + Zod + JWT
+```
+
+## Running locally
+
+```bash
+# server — http://localhost:5000
+cd server
+cp .env.example .env      # then fill it in
+npm install
+npm run dev
+
+# client — http://localhost:5173
+cd client
+npm install
+npm run dev
+```
+
+The server seeds an admin account on first boot from the `ADMIN_*` values in
+`.env`. Sign in with those, then create receptionist accounts under **Users**.
+
+## Roles
+
+| | Admin | Receptionist |
+|---|---|---|
+| Patients, bookings, payments, reports upload | ✔ | ✔ |
+| Test catalogue, departments, referrers | manage | read-only |
+| Patient report | ✔ | ✔ |
+| Financial summary, revenue, commission, dues | ✔ | ✘ |
+| Commission payouts, user management | ✔ | ✘ |
+| User activity log | ✔ | ✘ |
+
+Restriction is enforced by the API, not the UI. Route guards gate whole
+endpoints, and a receptionist gets no aggregate revenue, discount or commission
+figures anywhere.
+
+Per-invoice figures are a different matter: the commission line prints on the
+invoice and a receptionist is the one printing it, so gross, discount, net and
+commission all come through to both roles. The one thing `invoice.serializer.ts`
+still withholds is the referrer's standing terms, which is a commercial term
+across all their patients rather than a figure on this invoice.
+
+## How the money works
+
+`server/src/app/modules/Invoice/invoice.totals.ts` is the single place invoice
+money is derived:
+
+```
+gross      = sum of test prices              (read from the Test catalogue)
+discount   = gross x discountPercent         <- comes off the PATIENT's bill
+net        = gross - discount                <- what the patient pays
+due        = net - paid                      (paid comes from the Payment ledger)
+```
+
+**Discount and commission are separate arrangements and move money in opposite
+directions.** The discount is what the patient saves. The commission is what
+the centre pays the referring doctor; it never touches the patient's bill.
+
+The centre sets the commission per invoice, as either a percentage of the net
+the patient pays, or a flat taka figure:
+
+```
+commission = net x commissionValue     when commissionType is 'percent'
+           = commissionValue           when commissionType is 'fixed'
+```
+
+Worked example — a ৳2,000 bill with a 25% discount:
+
+```
+Gross            2,000
+Discount 25%      -500
+──────────────────────
+Patient pays     1,500
+
+Commission       ৳300  either 20% of 1,500, or a flat 300 — the centre's call
+Centre keeps     1,200
+```
+
+Invoice numbers read **`NLDC-MM-DD-YY-NNN`** (e.g. `NLDC-08-30-26-001`). The
+date is the Dhaka calendar day; the three-digit tail is a counter that restarts
+each morning. It keeps same-day invoices unique — `invoiceNumber` is uniquely
+indexed — and doubles as the day's booking count at a glance.
+
+Rules the server enforces and the client cannot override:
+
+- **Prices come from the `Test` collection**, never the request body.
+- **Discount and commission terms freeze onto the invoice** at booking, so
+  changing a referrer's standing rates never rewrites past billing.
+- **`paidAmount`, `dueAmount` and `paymentStatus` are derived**, never accepted
+  from a caller. `Payment` is the source of truth; the invoice caches the total.
+- **A payment cannot exceed the outstanding due**, and runs in a transaction.
+- Booking with **"collect full payment now"** issues the invoice and its receipt
+  in one step; a fully discounted visit creates no zero-value receipt.
+- **Mistakes are voided, not deleted** — the receipt stays on the ledger.
+- A walk-in with no referrer accrues no commission; a discount can still be given.
+
+## Dates
+
+The centre runs on Bangladesh time. Every daily figure and report boundary is a
+**Asia/Dhaka calendar day** (`server/src/app/utils/dateRange.ts`). Grouping on
+raw UTC would file bookings taken before 06:00 local into the previous day's
+collection report.
+
+## Verification
+
+```bash
+cd server
+npm test                   # both offline suites
+npm run verify:money       # billing arithmetic, no database needed
+npm run verify:e2e         # full flow against an in-memory MongoDB replica set
+npm run verify:cloudinary  # report upload against the REAL Cloudinary account
+```
+
+`verify:money` covers the discount/commission/rounding arithmetic and the Dhaka
+day boundaries. `verify:e2e` boots a real MongoDB (a replica set, so the
+payment transactions actually run) and exercises the service layer end to end:
+booking, partial and full payment, overpayment rejection, voiding, commission
+payout, report reconciliation, the audit trail, and role-based field stripping.
+
+`verify:cloudinary` is separate because it is the one path that cannot be
+proven offline. It uploads a PDF and a PNG to your real account, checks the PDF
+is stored as a raw asset rather than a corrupt image, confirms signed URLs open
+while unsigned ones are refused, then deletes both. Run it once after setting
+`CLOUDINARY_*`; it stays out of `npm test` because it costs API calls.
+
+## Deployment
+
+Build both, then serve:
+
+```bash
+cd server && npm run build   # -> server/dist, start with `node dist/server.js`
+cd client && npm run build   # -> client/dist
+```
+
+`client/server.js` is a small static server with SPA history fallback for
+shared hosting. Set `VITE_API_BASE_URL` at build time, and `CLIENT_URL` on the
+server to the deployed origin (comma-separated for more than one).
+
+Printed invoices carry no letterhead — they are meant for the centre's own
+pre-printed stationery. Optional `VITE_CENTRE_*` variables set the name shown
+in the app itself (sidebar, sign-in, report exports); see
+`client/src/lib/centre.ts`.
