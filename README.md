@@ -1,32 +1,36 @@
 # New Lab Diagnostic & Consultation Centre
 
-Diagnostic Centre Billing & Management System (MERN). Patient registration,
-test booking, cash billing with partial payments, referrer discount and
-commission tracking, diagnostic report handling, and an admin-only financial
-module.
+Diagnostic Centre Billing & Management System built as a **Turborepo + pnpm monorepo**. Patient registration, test booking, cash billing with partial payments, referrer discount and commission tracking, diagnostic report handling, and an admin-only financial module.
+
+## Monorepo structure
 
 ```
-client/   React 19 + Vite + TypeScript + Tailwind + Redux Toolkit Query
-server/   Express + Mongoose + Zod + JWT
+apps/
+  server/   Express + Mongoose + Zod + JWT          (port 5000)
+  client/   React 19 + Vite + TypeScript + Tailwind (port 5173)
+packages/
+  utils/          Shared date/money utilities
+  eslint-config/  Shared ESLint flat config
+  tsconfig/       Shared TypeScript configs
 ```
 
 ## Running locally
 
 ```bash
-# server — http://localhost:5000
-cd server
-cp .env.example .env      # then fill it in
-npm install
-npm run dev
+# Install all dependencies
+pnpm install
 
-# client — http://localhost:5173
-cd client
-npm install
-npm run dev
+# Run both apps in parallel
+pnpm dev
+
+# Or run individually
+pnpm --filter @repo/server dev   # http://localhost:5000
+pnpm --filter @repo/client dev   # http://localhost:5173
 ```
 
 The server seeds an admin account on first boot from the `ADMIN_*` values in
-`.env`. Sign in with those, then create receptionist accounts under **Users**.
+`apps/server/.env`. Sign in with those credentials, then create receptionist
+accounts under **Users**.
 
 ## Roles
 
@@ -43,15 +47,9 @@ Restriction is enforced by the API, not the UI. Route guards gate whole
 endpoints, and a receptionist gets no aggregate revenue, discount or commission
 figures anywhere.
 
-Per-invoice figures are a different matter: the commission line prints on the
-invoice and a receptionist is the one printing it, so gross, discount, net and
-commission all come through to both roles. The one thing `invoice.serializer.ts`
-still withholds is the referrer's standing terms, which is a commercial term
-across all their patients rather than a figure on this invoice.
-
 ## How the money works
 
-`server/src/app/modules/Invoice/invoice.totals.ts` is the single place invoice
+`apps/server/src/app/modules/Invoice/invoice.totals.ts` is the single place invoice
 money is derived:
 
 ```
@@ -65,14 +63,6 @@ due        = net - paid                      (paid comes from the Payment ledger
 directions.** The discount is what the patient saves. The commission is what
 the centre pays the referring doctor; it never touches the patient's bill.
 
-The centre sets the commission per invoice, as either a percentage of the net
-the patient pays, or a flat taka figure:
-
-```
-commission = net x commissionValue     when commissionType is 'percent'
-           = commissionValue           when commissionType is 'fixed'
-```
-
 Worked example — a ৳2,000 bill with a 25% discount:
 
 ```
@@ -85,67 +75,33 @@ Commission       ৳300  either 20% of 1,500, or a flat 300 — the centre's cal
 Centre keeps     1,200
 ```
 
-Invoice numbers read **`NLDC-MM-DD-YY-NNN`** (e.g. `NLDC-08-30-26-001`). The
-date is the Dhaka calendar day; the three-digit tail is a counter that restarts
-each morning. It keeps same-day invoices unique — `invoiceNumber` is uniquely
-indexed — and doubles as the day's booking count at a glance.
+Invoice numbers read **`NLDC-MM-DD-YY-NNN`** (e.g. `NLDC-08-30-26-001`).
 
-Rules the server enforces and the client cannot override:
-
-- **Prices come from the `Test` collection**, never the request body.
-- **Discount and commission terms freeze onto the invoice** at booking, so
-  changing a referrer's standing rates never rewrites past billing.
-- **`paidAmount`, `dueAmount` and `paymentStatus` are derived**, never accepted
-  from a caller. `Payment` is the source of truth; the invoice caches the total.
-- **A payment cannot exceed the outstanding due**, and runs in a transaction.
-- Booking with **"collect full payment now"** issues the invoice and its receipt
-  in one step; a fully discounted visit creates no zero-value receipt.
-- **Mistakes are voided, not deleted** — the receipt stays on the ledger.
-- A walk-in with no referrer accrues no commission; a discount can still be given.
-
-## Dates
-
-The centre runs on Bangladesh time. Every daily figure and report boundary is a
-**Asia/Dhaka calendar day** (`server/src/app/utils/dateRange.ts`). Grouping on
-raw UTC would file bookings taken before 06:00 local into the previous day's
-collection report.
-
-## Verification
+## Testing
 
 ```bash
-cd server
-npm test                   # both offline suites
-npm run verify:money       # billing arithmetic, no database needed
-npm run verify:e2e         # full flow against an in-memory MongoDB replica set
-npm run verify:cloudinary  # report upload against the REAL Cloudinary account
+pnpm test                    # all packages
+pnpm --filter @repo/server test
+pnpm --filter @repo/client test
 ```
 
-`verify:money` covers the discount/commission/rounding arithmetic and the Dhaka
-day boundaries. `verify:e2e` boots a real MongoDB (a replica set, so the
-payment transactions actually run) and exercises the service layer end to end:
-booking, partial and full payment, overpayment rejection, voiding, commission
-payout, report reconciliation, the audit trail, and role-based field stripping.
-
-`verify:cloudinary` is separate because it is the one path that cannot be
-proven offline. It uploads a PDF and a PNG to your real account, checks the PDF
-is stored as a raw asset rather than a corrupt image, confirms signed URLs open
-while unsigned ones are refused, then deletes both. Run it once after setting
-`CLOUDINARY_*`; it stays out of `npm test` because it costs API calls.
-
-## Deployment
-
-Build both, then serve:
+## Building
 
 ```bash
-cd server && npm run build   # -> server/dist, start with `node dist/server.js`
-cd client && npm run build   # -> client/dist
+pnpm build                   # all apps and packages via Turborepo
 ```
 
-`client/server.js` is a small static server with SPA history fallback for
-shared hosting. Set `VITE_API_BASE_URL` at build time, and `CLIENT_URL` on the
-server to the deployed origin (comma-separated for more than one).
+## Docker
 
-Printed invoices carry no letterhead — they are meant for the centre's own
-pre-printed stationery. Optional `VITE_CENTRE_*` variables set the name shown
-in the app itself (sidebar, sign-in, report exports); see
-`client/src/lib/centre.ts`.
+```bash
+# Full stack (server + client + MongoDB)
+docker compose up
+
+# Production
+docker compose -f docker-compose.prod.yml up
+```
+
+## CI / CD
+
+- **CI** (`.github/workflows/ci.yml`): type-check → lint → test:coverage → SonarQube on every push and PR
+- **CD** (`.github/workflows/cd-production.yml`): build Docker images → push to GHCR → deploy via SSH (requires `production` environment approval)
