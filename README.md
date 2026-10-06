@@ -104,4 +104,7 @@ docker compose -f docker-compose.prod.yml up
 ## CI / CD
 
 - **CI** (`.github/workflows/ci.yml`): type-check → lint → test:coverage → SonarQube on every push and PR
-- **CD** (`.github/workflows/cd-production.yml`): build Docker images → push to GHCR → deploy via SSH (requires `production` environment approval)
+- **CD** (`.github/workflows/deploy.yml`): PRs deploy a Vercel preview of `server` and `client`; pushes to `main` deploy to production.
+  - Create two Vercel projects (Root Directory `apps/server` and `apps/client`) and set app env vars in each.
+  - GitHub secrets: `VERCEL_TOKEN`, `VERCEL_ORG_ID`, `VERCEL_SERVER_PROJECT_ID`, `VERCEL_CLIENT_PROJECT_ID`.
+  - Disable Vercel's own Git auto-deploy for both projects so builds aren't duplicated.
