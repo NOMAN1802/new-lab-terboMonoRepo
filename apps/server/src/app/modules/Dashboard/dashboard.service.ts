@@ -1,4 +1,11 @@
+import httpStatus from 'http-status';
+import AppError from '../../errors/AppError';
 import { ActivityLogServices } from '../ActivityLog/activity-log.service';
+import { Appointment } from '../Appointment/appointment.model';
+import { Doctor } from '../Doctor/doctor.model';
+import { DoctorServices } from '../Doctor/doctor.service';
+import { DoctorSchedule } from '../DoctorSchedule/doctor-schedule.model';
+import { countSlots } from '../DoctorSchedule/schedule.rules';
 import { Invoice } from '../Invoice/invoice.model';
 import { Patient } from '../Patient/patient.model';
 import { Payment } from '../Payment/payment.model';
@@ -84,7 +91,7 @@ const reportStatusIn = async (range: TDateRange) => {
     { $match: { ...liveInvoice, ...dateRangeFilter('visitDate', range) } },
     { $unwind: '$items' },
     // A cancelled test is not a report anybody is waiting for.
-    { $match: { 'items.isCancelled': { $ne: true } } },
+    { $match: { 'items.isCancelled': { $ne: true }, 'items.kind': { $ne: 'consultation' } } },
     { $group: { _id: '$items.reportStatus', count: { $sum: 1 } } },
   ]);
 
@@ -156,7 +163,7 @@ const getAdminDashboard = async (range: TDateRange, groupBy: TGroupBy) => {
         $group: {
           _id: groupByExpression(groupBy, 'paymentDate'),
           collected: { $sum: '$amount' },
-          receipts: { $sum: 1 },
+          receipts: { $sum: { $cond: [{ $eq: ['$kind', 'refund'] }, 0, 1] } },
         },
       },
       { $sort: { _id: 1 } },
@@ -200,7 +207,7 @@ const getAdminDashboard = async (range: TDateRange, groupBy: TGroupBy) => {
           _id: '$receivedBy',
           name: { $first: '$receivedByName' },
           collected: { $sum: '$amount' },
-          receipts: { $sum: 1 },
+          receipts: { $sum: { $cond: [{ $eq: ['$kind', 'refund'] }, 0, 1] } },
         },
       },
       { $sort: { collected: -1 } },
@@ -291,6 +298,7 @@ const getReceptionistDashboard = async (userId: string) => {
       Invoice.aggregate([
         { $match: { ...liveInvoice, ...todayFilter } },
         { $unwind: '$items' },
+        { $match: { 'items.kind': { $ne: 'consultation' } } },
         { $group: { _id: '$items.reportStatus', count: { $sum: 1 } } },
       ]),
 
@@ -307,7 +315,7 @@ const getReceptionistDashboard = async (userId: string) => {
             ...dateRangeFilter('paymentDate', today),
           },
         },
-        { $group: { _id: null, total: { $sum: '$amount' }, receipts: { $sum: 1 } } },
+        { $group: { _id: null, total: { $sum: '$amount' }, receipts: { $sum: { $cond: [{ $eq: ['$kind', 'refund'] }, 0, 1] } } } },
       ]),
     ]);
 
@@ -330,7 +338,99 @@ const getReceptionistDashboard = async (userId: string) => {
   };
 };
 
+/**
+ * What a doctor needs at the start of a clinic: who is waiting, who is next,
+ * and what is still to be answered. Scoped to the
+ * logged-in doctor by their login, never by anything in the request.
+ */
+const getDoctorDashboard = async (actor: { _id: string; role: string }) => {
+  const doctorId = await DoctorServices.getDoctorIdForActor(actor);
+  const doctor = doctorId
+    ? await Doctor.findById(doctorId).select('name doctorCode specialty')
+    : null;
+  if (!doctor) {
+    throw new AppError(
+      httpStatus.NOT_FOUND,
+      'No doctor profile is linked to this account'
+    );
+  }
+
+  const today = todayRange();
+  const dayStart = today.start as Date;
+  const dayMs = 24 * 60 * 60 * 1000;
+  const monthStart = new Date(dayStart.getTime() - 29 * dayMs);
+
+  const [todays, pending, completedLast30] = await Promise.all([
+    Appointment.find({ doctor: doctor._id, ...dateRangeFilter('date', today) })
+      .sort('slotStart')
+      .select('serialNo startTime endTime status patientInfo notes'),
+    DoctorSchedule.find({
+      doctor: doctor._id,
+      status: 'pending',
+      date: { $gte: dayStart },
+    })
+      .sort('date startTime')
+      .limit(10),
+    Appointment.countDocuments({
+      doctor: doctor._id,
+      status: 'completed',
+      date: { $gte: monthStart, $lt: today.end },
+    }),
+  ]);
+
+  const live = todays.filter((appointment) => appointment.status !== 'cancelled');
+  const queue = live.map((appointment) => ({
+    _id: appointment._id,
+    serialNo: appointment.serialNo,
+    startTime: appointment.startTime,
+    endTime: appointment.endTime,
+    status: appointment.status,
+    patientName: appointment.patientInfo.name,
+    age: appointment.patientInfo.age,
+    gender: appointment.patientInfo.gender,
+    notes: appointment.notes,
+  }));
+
+  const countOf = (status: string) =>
+    todays.filter((appointment) => appointment.status === status).length;
+
+  return {
+    doctor: {
+      name: doctor.name,
+      doctorCode: doctor.doctorCode,
+      specialty: doctor.specialty,
+    },
+    today: {
+      date: dayStart,
+      total: live.length,
+      booked: countOf('booked'),
+      checkedIn: countOf('checked_in'),
+      completed: countOf('completed'),
+      noShow: countOf('no_show'),
+      cancelled: countOf('cancelled'),
+    },
+    // Waiting patients are called first, in serial order; otherwise whoever is
+    // booked next.
+    nextUp:
+      queue.find((entry) => entry.status === 'checked_in') ??
+      queue.find((entry) => entry.status === 'booked') ??
+      null,
+    queue,
+    pendingSchedules: pending.map((schedule) => ({
+      _id: schedule._id,
+      date: schedule.date,
+      startTime: schedule.startTime,
+      endTime: schedule.endTime,
+      slotMinutes: schedule.slotMinutes,
+      slotCount: countSlots(schedule),
+      fee: schedule.fee,
+    })),
+    completedLast30,
+  };
+};
+
 export const DashboardServices = {
   getAdminDashboard,
   getReceptionistDashboard,
+  getDoctorDashboard,
 };

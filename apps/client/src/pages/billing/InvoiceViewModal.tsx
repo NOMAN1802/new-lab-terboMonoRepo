@@ -160,12 +160,14 @@ const InvoiceViewModal = ({ invoiceId, onClose }: InvoiceViewModalProps) => {
                             columns={[
                                 { key: 'testName', header: t('col.test'), render: (r) => r.testName },
                                 { key: 'price', header: t('col.price'), align: 'right', render: (r) => money(r.price) },
-                                { key: 'reportStatus', header: t('col.report'), render: (r) => <StatusBadge status={r.reportStatus} /> },
+                                { key: 'reportStatus', header: t('col.report'), render: (r) => (r.kind === 'consultation' ? <span style={{ color: 'var(--text-faint)' }}>—</span> : <StatusBadge status={r.reportStatus} />) },
                                 {
                                     key: 'actions',
                                     header: t('col.actions'),
                                     align: 'right',
-                                    render: (item) => (
+                                    render: (item) => item.kind === 'consultation' ? (
+                                        <span style={{ color: 'var(--text-faint)' }}>—</span>
+                                    ) : (
                                         <span style={{ display: 'inline-flex', gap: 4, justifyContent: 'flex-end' }}>
                                             {item.reportFile && (
                                                 <>

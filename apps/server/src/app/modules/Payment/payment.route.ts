@@ -15,6 +15,14 @@ router.post(
   PaymentControllers.createPayment
 );
 
+// Handing money back is an Admin decision, like voiding a receipt.
+router.post(
+  '/refund',
+  auth(USER_ROLE.admin),
+  validateRequest(PaymentValidations.refundPaymentValidationSchema),
+  PaymentControllers.refundPayment
+);
+
 router.get(
   '/',
   auth(USER_ROLE.admin, USER_ROLE.receptionist),

@@ -1,6 +1,6 @@
 const AUTH_STORAGE_KEY = 'newlab-auth-state';
 
-export type UserRole = 'admin' | 'receptionist';
+export type UserRole = 'admin' | 'receptionist' | 'doctor';
 
 export type TokenPayload = {
     _id: string;

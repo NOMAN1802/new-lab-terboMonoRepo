@@ -1,7 +1,11 @@
 import { useMemo, useState } from 'react';
+import { useSearchParams } from 'react-router-dom';
 import type { CSSProperties } from 'react';
 import dayjs from 'dayjs';
 import Loader from '@/components/common/Loader';
+import { toast } from 'sonner';
+import ConfirmModal from '@/components/common/ConfirmModal';
+import type { ConfirmRequest } from '@/components/common/ConfirmModal';
 import ErrorState from '@/components/common/ErrorState';
 import StatusBadge from '@/components/common/StatusBadge';
 import Avatar from '@/components/ui/Avatar';
@@ -36,6 +40,7 @@ const EMPTY_FORM: CreateUserInput = {
 const ROLE_OPTIONS = [
     { label: 'Receptionist', value: 'receptionist' },
     { label: 'Admin', value: 'admin' },
+    { label: 'Doctor', value: 'doctor' },
 ];
 
 const iconAction = (bg: string, fg: string, enabled: boolean): CSSProperties => ({
@@ -63,11 +68,15 @@ const legend = (icon: IconName, text: string) => (
 
 const UsersPage = () => {
     const currentUser = useAppSelector((state) => state.auth.user);
+    // The Doctors page sends people here to add a doctor.
+    const [searchParams] = useSearchParams();
+    const startAsDoctor = searchParams.get('add') === 'doctor';
+    const [confirmRequest, setConfirmRequest] = useState<ConfirmRequest | null>(null);
     const [page, setPage] = useState(1);
     const t = useT();
     const [viewing, setViewing] = useState<User | null>(null);
     const [isAddOpen, setAddOpen] = useState(false);
-    const [formData, setFormData] = useState<CreateUserInput>(EMPTY_FORM);
+    const [formData, setFormData] = useState<CreateUserInput>(startAsDoctor ? { ...EMPTY_FORM, role: 'doctor' } : EMPTY_FORM);
     const [result, setResult] = useState<{ tone: 'success' | 'error'; text: string } | null>(null);
     const [updatingUserId, setUpdatingUserId] = useState<string | null>(null);
 
@@ -77,10 +86,12 @@ const UsersPage = () => {
     const [createUser, { isLoading: isCreating }] = useCreateUserMutation();
 
     // You never administer your own account from this table.
+    const allUsers = data?.users;
+    const ownId = currentUser?._id;
     const users = useMemo(() => {
-        if (!data?.users || !currentUser?._id) return data?.users ?? [];
-        return data.users.filter((user) => user._id !== currentUser._id);
-    }, [data?.users, currentUser?._id]);
+        if (!allUsers || !ownId) return allUsers ?? [];
+        return allUsers.filter((user) => user._id !== ownId);
+    }, [allUsers, ownId]);
 
     if (isLoading) return <Loader fullScreen message={t('ld.users')} />;
 
@@ -88,15 +99,23 @@ const UsersPage = () => {
         return <ErrorState title={t('err.users')} description={t('err.network')} onRetry={refetch} />;
     }
 
-    const handleDelete = async (userId: string, userName: string) => {
-        if (!window.confirm(`Are you sure you want to delete user "${userName}"? This action cannot be undone.`)) return;
-        try {
-            await deleteUser(userId).unwrap();
-            refetch();
-        } catch (error) {
-            window.alert(apiErrorMessage(error, 'Failed to delete user. Please try again.'));
-        }
-    };
+    const handleDelete = (userId: string, userName: string, role: UserRole) =>
+        setConfirmRequest({
+            title: `Delete user "${userName}"?`,
+            description:
+                role === 'doctor'
+                    ? 'Their doctor profile goes with them. Past schedules and appointments stay on record, and it is refused while they still have pending or approved schedules.'
+                    : 'This action cannot be undone.',
+            confirmLabel: 'Delete user',
+            onConfirm: async () => {
+                try {
+                    await deleteUser(userId).unwrap();
+                    refetch();
+                } catch (error) {
+                    toast.error(apiErrorMessage(error, 'Failed to delete user. Please try again.'));
+                }
+            },
+        });
 
     const handleRoleChange = async (userId: string, userName: string, newRole: UserRole) => {
         try {
@@ -104,7 +123,7 @@ const UsersPage = () => {
             await updateUser({ id: userId, data: { role: newRole } }).unwrap();
             refetch();
         } catch (error) {
-            window.alert(apiErrorMessage(error, `Failed to update role for ${userName}. Please try again.`));
+            toast.error(apiErrorMessage(error, `Failed to update role for ${userName}. Please try again.`));
         } finally {
             setUpdatingUserId(null);
         }
@@ -127,10 +146,25 @@ const UsersPage = () => {
         if (formData.password.trim().length < 6) {
             return setResult({ tone: 'error', text: 'Password must be at least 6 characters.' });
         }
+        if (formData.role === 'doctor') {
+            if (!formData.specialty?.trim()) return setResult({ tone: 'error', text: 'Specialty is required for a doctor.' });
+            if (formData.consultationFee === undefined || formData.consultationFee < 0) {
+                return setResult({ tone: 'error', text: 'Enter the doctor consultation fee in taka.' });
+            }
+        }
 
         try {
-            await createUser(formData).unwrap();
-            setResult({ tone: 'success', text: 'User created.' });
+            // Doctor details only travel with a doctor.
+            const { specialty, degrees, consultationFee, ...account } = formData;
+            await createUser(
+                formData.role === 'doctor'
+                    ? { ...account, specialty: specialty?.trim(), degrees: degrees?.trim() || undefined, consultationFee }
+                    : account
+            ).unwrap();
+            setResult({
+                tone: 'success',
+                text: formData.role === 'doctor' ? 'Doctor created. They can sign in to approve schedules.' : 'User created.',
+            });
             refetch();
             setTimeout(() => setAddOpen(false), 1200);
         } catch (error) {
@@ -217,12 +251,16 @@ const UsersPage = () => {
                                     <Select
                                         size="sm"
                                         value={user.role}
-                                        disabled={user.role === 'admin' || isUpdating || updatingUserId === user._id}
+                                        disabled={user.role === 'admin' || user.role === 'doctor' || isUpdating || updatingUserId === user._id}
                                         onChange={(e) => handleRoleChange(user._id, user.name, e.target.value as UserRole)}
-                                        options={[
-                                            { label: 'Admin', value: 'admin' },
-                                            { label: 'Receptionist', value: 'receptionist' },
-                                        ]}
+                                        options={
+                                            user.role === 'doctor'
+                                                ? [{ label: 'Doctor', value: 'doctor' }]
+                                                : [
+                                                      { label: 'Admin', value: 'admin' },
+                                                      { label: 'Receptionist', value: 'receptionist' },
+                                                  ]
+                                        }
                                         style={{ width: 138 }}
                                     />
                                 </div>
@@ -256,7 +294,7 @@ const UsersPage = () => {
                                         type="button"
                                         disabled={user.role === 'admin'}
                                         title={user.role === 'admin' ? 'Cannot delete another admin' : 'Delete user'}
-                                        onClick={() => handleDelete(user._id, user.name)}
+                                        onClick={() => handleDelete(user._id, user.name, user.role)}
                                         style={iconAction('var(--danger-bg)', 'var(--danger-strong)', user.role !== 'admin')}
                                     >
                                         <Icon name="trash-2" size={16} />
@@ -376,8 +414,50 @@ const UsersPage = () => {
                         options={ROLE_OPTIONS}
                         hint={t('hint.role')}
                     />
+
+                    {formData.role === 'doctor' && (
+                        <div
+                            style={{
+                                display: 'grid',
+                                gridTemplateColumns: 'repeat(auto-fit, minmax(min(220px, 100%),1fr))',
+                                gap: 18,
+                                background: 'var(--surface-sunken)',
+                                borderRadius: 'var(--radius-md)',
+                                padding: 18,
+                            }}
+                        >
+                            <TextField
+                                label="Specialty"
+                                value={formData.specialty ?? ''}
+                                onChange={setField('specialty')}
+                                placeholder="Medicine, Cardiology..."
+                            />
+                            <TextField
+                                label="Degrees"
+                                optional
+                                value={formData.degrees ?? ''}
+                                onChange={setField('degrees')}
+                                placeholder="MBBS, FCPS"
+                            />
+                            <TextField
+                                label="Consultation fee (৳)"
+                                type="number"
+                                min={0}
+                                step="1"
+                                value={formData.consultationFee ?? ''}
+                                onChange={(event) => {
+                                    const raw = event.target.value;
+                                    setFormData((current) => ({ ...current, consultationFee: raw === '' ? undefined : Number(raw) }));
+                                    setResult(null);
+                                }}
+                                hint="Default for new schedules. Each schedule keeps the fee it was created with."
+                            />
+                        </div>
+                    )}
                 </div>
             </Modal>
+
+            <ConfirmModal request={confirmRequest} onClose={() => setConfirmRequest(null)} />
         </>
     );
 };

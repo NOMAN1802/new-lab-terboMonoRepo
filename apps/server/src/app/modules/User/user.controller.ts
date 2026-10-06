@@ -5,7 +5,7 @@ import sendResponse from '../../utils/sendResponse';
 import { UserServices } from './user.service';
 
 const createUser = catchAsync(async (req, res) => {
-  const user = await UserServices.createUser(req.body);
+  const user = await UserServices.createUser(req.body, req.user._id);
 
   sendResponse(res, {
     success: true,
@@ -31,7 +31,7 @@ const updateUser = catchAsync(async (req, res) => {
 });
 
 const deleteUser = catchAsync(async (req, res) => {
-  const result = await UserServices.deleteUser(req.params.id);
+  const result = await UserServices.deleteUser(req.params.id, req.user._id);
 
   if (!result) {
     throw new AppError(404, 'User not found');

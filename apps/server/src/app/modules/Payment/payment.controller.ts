@@ -1,6 +1,8 @@
 import httpStatus from 'http-status';
 import { catchAsync } from '../../utils/catchAsync';
 import sendResponse from '../../utils/sendResponse';
+import { type TInvoice } from '../Invoice/invoice.interface';
+import { InvoiceServices } from '../Invoice/invoice.service';
 import { serializeInvoice } from '../Invoice/invoice.serializer';
 import { type TUserRole } from '../User/user.interface';
 import { PaymentServices } from './payment.service';
@@ -17,6 +19,31 @@ const createPayment = catchAsync(async (req, res) => {
     message: 'Payment recorded successfully',
     data: {
       payment,
+      invoice: serializeInvoice(invoice, req.user.role as TUserRole),
+    },
+  });
+});
+
+const refundPayment = catchAsync(async (req, res) => {
+  const { invoice: invoiceId, amount, reason, cancelInvoice } = req.body;
+  const refunded = await PaymentServices.refundPayment(
+    { invoice: invoiceId, amount, reason },
+    req.user._id
+  );
+
+  // Refund and cancel in one go: only when the refund cleared everything paid,
+  // since an invoice with money still on it cannot be cancelled.
+  let invoice: TInvoice = refunded.invoice;
+  if (cancelInvoice && invoice.paidAmount === 0 && !invoice.isCancelled) {
+    invoice = await InvoiceServices.cancelInvoice(invoiceId, req.user._id, reason);
+  }
+
+  sendResponse(res, {
+    statusCode: httpStatus.CREATED,
+    success: true,
+    message: 'Refund recorded successfully',
+    data: {
+      payment: refunded.payment,
       invoice: serializeInvoice(invoice, req.user.role as TUserRole),
     },
   });
@@ -73,6 +100,7 @@ const getInvoicePayments = catchAsync(async (req, res) => {
 
 export const PaymentControllers = {
   createPayment,
+  refundPayment,
   voidPayment,
   getPayments,
   getPayment,

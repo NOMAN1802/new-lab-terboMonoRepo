@@ -18,7 +18,16 @@ const ReportFileSchema = new Schema<TReportFile>(
 );
 
 const InvoiceItemSchema = new Schema<TInvoiceItem>({
-  test: { type: Schema.Types.ObjectId, ref: 'Test', required: true },
+  kind: { type: String, enum: ['test', 'consultation'], default: 'test' },
+  test: {
+    type: Schema.Types.ObjectId,
+    ref: 'Test',
+    required: function (this: TInvoiceItem) {
+      return this.kind !== 'consultation';
+    },
+  },
+  appointment: { type: Schema.Types.ObjectId, ref: 'Appointment' },
+  doctor: { type: Schema.Types.ObjectId, ref: 'Doctor' },
   testCode: { type: String, required: true },
   testName: { type: String, required: true },
   categoryName: { type: String },

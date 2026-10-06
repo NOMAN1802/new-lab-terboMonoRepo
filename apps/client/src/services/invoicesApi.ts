@@ -19,7 +19,9 @@ export type ReportFile = {
 
 export type InvoiceItem = {
     _id: string;
-    test: string;
+    /** A consultation has no report, so every report control skips it. */
+    kind?: 'test' | 'consultation';
+    test?: string;
     testCode: string;
     testName: string;
     categoryName?: string;
@@ -38,10 +40,10 @@ export type InvoiceItem = {
 };
 
 /**
- * Per-invoice figures come through in full for both roles — the commission
- * line prints on the invoice. commission* stays optional because a walk-in
- * with no referrer accrues none; render it only when present rather than
- * falling back to 0.
+ * The patient side of an invoice (gross, discount, net, paid, due) comes
+ * through in full for both roles. commission* is an admin-only matter: the API
+ * omits it for a receptionist, and a walk-in with no referrer accrues none, so
+ * render it only when present rather than falling back to 0.
  */
 export type Invoice = {
     _id: string;

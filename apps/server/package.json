@@ -17,6 +17,12 @@
     "verify:money": "pnpm run build && node scripts/verify-money.js",
     "verify:e2e": "pnpm run build && node scripts/verify-e2e.js",
     "verify:cloudinary": "pnpm run build && node scripts/verify-cloudinary.js",
+    "verify:doctors": "pnpm run build && node scripts/verify-doctor-schedules.js",
+    "verify:appointments": "pnpm run build && node scripts/verify-appointments.js",
+    "verify:billing": "pnpm run build && node scripts/verify-appointment-billing.js",
+    "verify:cancel": "pnpm run build && node scripts/verify-cancel-and-dashboard.js",
+    "verify:slots": "pnpm run build && node scripts/verify-slots.js",
+    "verify:refunds": "pnpm run build && node scripts/verify-refunds.js",
     "verify:routes": "pnpm run build && node scripts/verify-routes.js",
     "clean": "rm -rf dist"
   },

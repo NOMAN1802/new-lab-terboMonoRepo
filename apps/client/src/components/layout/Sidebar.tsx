@@ -6,6 +6,9 @@ import { useAppDispatch } from '@/hooks/store';
 import { useRole } from '@/hooks/useRole';
 import { useT } from '@/i18n/useLanguage';
 import type { TranslationKey } from '@/i18n/translations';
+import { useCancelOutcomes } from '@/hooks/useCancelOutcomes';
+import { useCancelRequests } from '@/hooks/useCancelRequests';
+import { usePatientsToInform } from '@/hooks/usePatientsToInform';
 import { useUnpaidInvoices } from '@/hooks/useUnpaidInvoices';
 import { logout } from '@/features/auth/authSlice';
 import { CENTRE } from '@/lib/centre';
@@ -29,21 +32,34 @@ type NavItem = {
 
 const NAVIGATION: NavItem[] = [
     { key: 'nav.dashboard', to: '/', icon: 'layout-dashboard' },
-    { key: 'nav.patients', to: '/patients', icon: 'users' },
+    { key: 'nav.patients', to: '/patients', icon: 'users', roles: ['admin', 'receptionist'] },
+    { key: 'nav.schedules', to: '/schedules', icon: 'calendar', roles: ['admin', 'doctor'] },
+    { key: 'nav.doctors', to: '/doctors', icon: 'user-round-plus', roles: ['admin', 'receptionist'] },
+    {
+        key: 'nav.appointments',
+        to: '/appointments',
+        icon: 'clipboard-list',
+        children: [
+            { key: 'nav.allAppointments', to: '/appointments' },
+            { key: 'nav.bookAppointment', to: '/appointments/new', roles: ['admin', 'receptionist'] },
+        ],
+    },
     {
         key: 'nav.billing',
         to: '/billing',
         icon: 'credit-card',
+        roles: ['admin', 'receptionist'],
         children: [
             { key: 'nav.newBooking', to: '/billing/new' },
             { key: 'nav.allInvoices', to: '/billing' },
         ],
     },
-    { key: 'nav.reportDelivery', to: '/patient-reports', icon: 'file-text' },
+    { key: 'nav.reportDelivery', to: '/patient-reports', icon: 'file-text', roles: ['admin', 'receptionist'] },
     {
         key: 'nav.catalogue',
         to: '/tests',
         icon: 'flask-conical',
+        roles: ['admin', 'receptionist'],
         children: [
             { key: 'nav.tests', to: '/tests' },
             { key: 'nav.departments', to: '/departments', roles: ['admin'] },
@@ -55,6 +71,7 @@ const NAVIGATION: NavItem[] = [
         key: 'nav.reports',
         to: '/reports/patients',
         icon: 'chart-column',
+        roles: ['admin', 'receptionist'],
         children: [
             { key: 'nav.patientReport', to: '/reports/patients' },
             { key: 'nav.financialSummary', to: '/reports/financial', roles: ['admin'] },
@@ -230,6 +247,9 @@ const NavList = ({ collapsed = false, onNavigate }: NavListProps) => {
     const navigate = useNavigate();
     const { role } = useRole();
     const { total: unpaidCount } = useUnpaidInvoices();
+    const { total: cancelRequestCount } = useCancelRequests();
+    const { total: cancelOutcomeCount } = useCancelOutcomes();
+    const { total: informCount } = usePatientsToInform();
 
     const items = NAVIGATION.filter((item) => visibleTo(role, item.roles));
 
@@ -280,7 +300,13 @@ const NavList = ({ collapsed = false, onNavigate }: NavListProps) => {
                             icon={item.icon}
                             active={active}
                             collapsed={collapsed}
-                            count={item.key === 'nav.billing' ? unpaidCount : undefined}
+                            count={
+                                item.key === 'nav.billing'
+                                    ? unpaidCount
+                                    : item.key === 'nav.appointments'
+                                      ? cancelRequestCount + cancelOutcomeCount + informCount
+                                      : undefined
+                            }
                             hasChildren={Boolean(children?.length)}
                             onClick={() => (children?.length && !collapsed ? setOpenGroup(isOpen ? null : item.key) : go(item.to))}
                         />

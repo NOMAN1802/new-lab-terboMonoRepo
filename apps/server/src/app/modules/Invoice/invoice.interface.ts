@@ -4,6 +4,8 @@ export type TPaymentStatus = 'unpaid' | 'partial' | 'paid';
 export type TCommissionType = 'percent' | 'fixed';
 export type TReportStatus = 'pending' | 'uploaded' | 'delivered';
 export type TCommissionStatus = 'pending' | 'paid';
+/** A lab test, or a doctor consultation billed for an appointment. */
+export type TInvoiceItemKind = 'test' | 'consultation';
 
 export type TReportFile = {
   url: string;
@@ -24,7 +26,16 @@ export type TReportFile = {
  */
 export type TInvoiceItem = {
   _id?: Types.ObjectId;
-  test: Types.ObjectId;
+  /**
+   * Absent on old invoices, which are all tests. Everything that treats a line
+   * as a lab test (reports, worklists, editing) must skip 'consultation'.
+   */
+  kind?: TInvoiceItemKind;
+  /** The catalogue test. Not set for a consultation. */
+  test?: Types.ObjectId;
+  /** Set on a consultation line: the appointment and doctor it bills. */
+  appointment?: Types.ObjectId;
+  doctor?: Types.ObjectId;
   testCode: string;
   testName: string;
   categoryName?: string;

@@ -1,5 +1,7 @@
 import { useState } from 'react';
 import { toast } from 'sonner';
+import ConfirmModal from '@/components/common/ConfirmModal';
+import type { ConfirmRequest } from '@/components/common/ConfirmModal';
 import ErrorState from '@/components/common/ErrorState';
 import Loader from '@/components/common/Loader';
 import StatusBadge from '@/components/common/StatusBadge';
@@ -43,6 +45,7 @@ const rowAction: React.CSSProperties = {
 const TestsPage = () => {
     const t = useT();
     const { isAdmin } = useRole();
+    const [confirmRequest, setConfirmRequest] = useState<ConfirmRequest | null>(null);
     const [search, setSearch] = useState('');
     const [editing, setEditing] = useState<LabTest | null>(null);
     const [isFormOpen, setFormOpen] = useState(false);
@@ -121,15 +124,20 @@ const TestsPage = () => {
         }
     };
 
-    const handleDelete = async (test: LabTest) => {
-        if (!window.confirm(`Remove "${test.name}" from the catalogue?`)) return;
-        try {
-            await deleteTest(test._id).unwrap();
-            toast.success('Test removed');
-        } catch (error) {
-            toast.error(apiErrorMessage(error, 'Could not remove test'));
-        }
-    };
+    const handleDelete = (test: LabTest) =>
+        setConfirmRequest({
+            title: `Remove "${test.name}" from the catalogue?`,
+            description: 'Invoices already raised keep the price they were booked at.',
+            confirmLabel: 'Remove test',
+            onConfirm: async () => {
+                try {
+                    await deleteTest(test._id).unwrap();
+                    toast.success('Test removed');
+                } catch (error) {
+                    toast.error(apiErrorMessage(error, 'Could not remove test'));
+                }
+            },
+        });
 
     const tests = data?.items ?? [];
     const categories = categoryData?.items ?? [];
@@ -312,6 +320,8 @@ const TestsPage = () => {
                     />
                 </Panel>
             )}
+
+            <ConfirmModal request={confirmRequest} onClose={() => setConfirmRequest(null)} />
         </>
     );
 };

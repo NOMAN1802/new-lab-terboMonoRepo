@@ -136,7 +136,10 @@ const GlobalSearch = () => {
     const go = (hit: Hit) => {
         setOpen(false);
         setTerm('');
-        inputRef.current?.blur();
+        // Whatever has focus (the field after Enter, the result after a click)
+        // lets go. Reaching for the field through its ref here is what the
+        // hooks lint reads as touching a ref while rendering the result list.
+        if (document.activeElement instanceof HTMLElement) document.activeElement.blur();
         navigate(hit.to);
     };
 

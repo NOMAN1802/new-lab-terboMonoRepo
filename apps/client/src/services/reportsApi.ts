@@ -36,7 +36,10 @@ export type FinancialSummary = {
     grossBilled: number;
     discountGiven: number;
     netBilled: number;
+    /** Net of refunds. */
     cashCollected: number;
+    /** Cash handed back to patients in the window. */
+    cashRefunded?: number;
     outstanding: number;
     commissionAccrued: number;
     /** Cash collected less the commission owed on it — what the centre keeps. */

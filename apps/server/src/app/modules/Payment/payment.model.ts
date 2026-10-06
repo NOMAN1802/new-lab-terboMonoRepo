@@ -9,7 +9,15 @@ const PaymentSchema = new Schema<TPayment>(
     patient: { type: Schema.Types.ObjectId, ref: 'Patient', required: true },
     patientName: { type: String, required: true },
 
-    amount: { type: Number, required: true, min: 0.01 },
+    amount: {
+      type: Number,
+      required: true,
+      validate: {
+        validator: (value: number) => value !== 0,
+        message: 'Amount cannot be zero',
+      },
+    },
+    kind: { type: String, enum: ['payment', 'refund'], default: 'payment' },
     method: { type: String, enum: ['cash'], default: 'cash' },
     paymentDate: { type: Date, required: true, default: Date.now },
 

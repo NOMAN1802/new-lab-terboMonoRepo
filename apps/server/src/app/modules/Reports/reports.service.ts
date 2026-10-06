@@ -34,7 +34,10 @@ const getPatientReport = async (range: TDateRange) => {
     Patient.countDocuments({ isDeleted: false }),
   ]);
 
-  const rows = invoices.map((invoice) => ({
+  const rows = invoices.map((invoice) => {
+    // A consultation is a visit, not a test, and has no report to chase.
+    const labItems = invoice.items.filter((item) => item.kind !== 'consultation');
+    return {
     invoiceNumber: invoice.invoiceNumber,
     visitDate: invoice.visitDate,
     patientId: invoice.patientInfo.patientId,
@@ -42,13 +45,14 @@ const getPatientReport = async (range: TDateRange) => {
     age: invoice.patientInfo.age,
     gender: invoice.patientInfo.gender,
     phone: invoice.patientInfo.phone,
-    tests: invoice.items.map((item) => item.testName),
-    testCount: invoice.items.length,
-    reportsPending: invoice.items.filter(
+    tests: labItems.map((item) => item.testName),
+    testCount: labItems.length,
+    reportsPending: labItems.filter(
       (item) => item.reportStatus === 'pending'
     ).length,
     paymentStatus: invoice.paymentStatus,
-  }));
+    };
+  });
 
   return {
     summary: {
@@ -70,7 +74,7 @@ const getRevenueReport = async (range: TDateRange, groupBy: TGroupBy) => {
         $group: {
           _id: groupByExpression(groupBy, 'paymentDate'),
           collected: { $sum: '$amount' },
-          receipts: { $sum: 1 },
+          receipts: { $sum: { $cond: [{ $eq: ['$kind', 'refund'] }, 0, 1] } },
         },
       },
       { $sort: { _id: 1 } },
@@ -81,7 +85,7 @@ const getRevenueReport = async (range: TDateRange, groupBy: TGroupBy) => {
         $group: {
           _id: null,
           collected: { $sum: '$amount' },
-          receipts: { $sum: 1 },
+          receipts: { $sum: { $cond: [{ $eq: ['$kind', 'refund'] }, 0, 1] } },
         },
       },
     ]),
@@ -123,7 +127,15 @@ const getFinancialSummary = async (range: TDateRange) => {
     ]),
     Payment.aggregate([
       { $match: { ...livePayment, ...dateRangeFilter('paymentDate', range) } },
-      { $group: { _id: null, collected: { $sum: '$amount' } } },
+      {
+        $group: {
+          _id: null,
+          collected: { $sum: '$amount' },
+          refunded: {
+            $sum: { $cond: [{ $eq: ['$kind', 'refund'] }, { $multiply: ['$amount', -1] }, 0] },
+          },
+        },
+      },
     ]),
   ]);
 
@@ -132,7 +144,9 @@ const getFinancialSummary = async (range: TDateRange) => {
   const discountGiven = round2(b.discount ?? 0);
   const netBilled = round2(b.net ?? 0);
   const commissionAccrued = round2(b.commission ?? 0);
+  // Net of refunds: a refund is cash that left the till, on the day it left.
   const cashCollected = round2(collected[0]?.collected ?? 0);
+  const cashRefunded = round2(collected[0]?.refunded ?? 0);
 
   return {
     invoiceCount: b.invoiceCount ?? 0,
@@ -140,6 +154,7 @@ const getFinancialSummary = async (range: TDateRange) => {
     discountGiven,
     netBilled,
     cashCollected,
+    cashRefunded,
     outstanding: round2(b.due ?? 0),
     commissionAccrued,
     /**
@@ -277,7 +292,7 @@ const getCollectionByUserReport = async (range: TDateRange) => {
         _id: '$receivedBy',
         name: { $first: '$receivedByName' },
         collected: { $sum: '$amount' },
-        receipts: { $sum: 1 },
+        receipts: { $sum: { $cond: [{ $eq: ['$kind', 'refund'] }, 0, 1] } },
       },
     },
     { $sort: { collected: -1 } },

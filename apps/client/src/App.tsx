@@ -35,9 +35,21 @@ const SettingsPage = lazy(() => import('@/pages/settings/SettingsPage'));
 const UsersPage = lazy(() => import('@/pages/users/UsersPage'));
 const ActivityPage = lazy(() => import('@/pages/activity/ActivityPage'));
 const PublicReportPage = lazy(() => import('@/pages/public/PublicReportPage'));
+const DoctorsPage = lazy(() => import('@/pages/doctors/DoctorsPage'));
+const SchedulesPage = lazy(() => import('@/pages/schedules/SchedulesPage'));
+const DoctorDashboardPage = lazy(() => import('@/pages/dashboard/DoctorDashboardPage'));
+const BookAppointmentPage = lazy(() => import('@/pages/appointments/BookAppointmentPage'));
+const AppointmentsPage = lazy(() => import('@/pages/appointments/AppointmentsPage'));
+const PrintAppointmentPage = lazy(() => import('@/pages/appointments/PrintAppointmentPage'));
 import { useRefreshTokenMutation } from '@/services/authApi';
 import { useAppDispatch, useAppSelector } from '@/hooks/store';
 import { logout, setInitializing } from '@/features/auth/authSlice';
+
+/** A doctor opens to their own clinic; everyone else gets the usual dashboard. */
+const HomeRoute = () => {
+    const role = useAppSelector((state) => state.auth.user?.role);
+    return role === 'doctor' ? <DoctorDashboardPage /> : <DashboardPage />;
+};
 
 function App() {
     const dispatch = useAppDispatch();
@@ -86,27 +98,43 @@ function App() {
 
                 <Route element={<ProtectedRoute />}>
                     <Route element={<ShellLayout />}>
-                        <Route index element={<DashboardPage />} />
+                        <Route index element={<HomeRoute />} />
 
-                        {/* Patients — both roles */}
-                        <Route path="patients" element={<PatientsPage />} />
-                        <Route path="patients/new" element={<PatientFormPage />} />
-                        <Route path="patients/:id" element={<PatientDetailPage />} />
-                        <Route path="patients/:id/edit" element={<PatientFormPage />} />
+                        {/* Reception and admin. A doctor has no business here, and the API
+                            would reject them anyway. */}
+                        <Route element={<RoleRoute allow={['admin', 'receptionist']} />}>
+                            {/* Patients — both roles */}
+                            <Route path="patients" element={<PatientsPage />} />
+                            <Route path="patients/new" element={<PatientFormPage />} />
+                            <Route path="patients/:id" element={<PatientDetailPage />} />
+                            <Route path="patients/:id/edit" element={<PatientFormPage />} />
 
-                        {/* Billing — both roles */}
-                        <Route path="billing" element={<InvoicesPage />} />
-                        <Route path="billing/new" element={<CreateBookingPage />} />
-                        <Route path="billing/:id" element={<InvoiceDetailPage />} />
+                            {/* Billing — both roles */}
+                            <Route path="billing" element={<InvoicesPage />} />
+                            <Route path="billing/new" element={<CreateBookingPage />} />
+                            <Route path="billing/:id" element={<InvoiceDetailPage />} />
 
-                        {/* Catalogue — readable by both, editable by admin only */}
-                        <Route path="tests" element={<TestsPage />} />
+                            {/* Catalogue — readable by both, editable by admin only */}
+                            <Route path="tests" element={<TestsPage />} />
 
-                        {/* Report handling is reception work too — the API allows both roles. */}
-                        <Route path="patient-reports" element={<PatientReportUploadPage />} />
+                            {/* Report handling is reception work too — the API allows both roles. */}
+                            <Route path="patient-reports" element={<PatientReportUploadPage />} />
 
-                        {/* Patient report — both roles, patient data only */}
-                        <Route path="reports/patients" element={<PatientReportPage />} />
+                            {/* Patient report — both roles, patient data only */}
+                            <Route path="reports/patients" element={<PatientReportPage />} />
+                            <Route path="doctors" element={<DoctorsPage />} />
+                            <Route path="appointments/new" element={<BookAppointmentPage />} />
+                        </Route>
+
+                        {/* Admin proposes schedules; the doctor approves or declines them. */}
+                        <Route element={<RoleRoute allow={['admin', 'doctor']} />}>
+                            <Route path="schedules" element={<SchedulesPage />} />
+                        </Route>
+
+                        {/* Everyone with a login works with appointments; the lists scope to what each role may see. */}
+                        <Route element={<RoleRoute allow={['admin', 'receptionist', 'doctor']} />}>
+                            <Route path="appointments" element={<AppointmentsPage />} />
+                        </Route>
 
                         <Route path="profile" element={<ProfilePage />} />
 
@@ -125,7 +153,10 @@ function App() {
                     </Route>
 
                     {/* Print view renders without the app shell. */}
-                    <Route path="billing/:id/print" element={<PrintInvoicePage />} />
+                    <Route element={<RoleRoute allow={['admin', 'receptionist']} />}>
+                        <Route path="billing/:id/print" element={<PrintInvoicePage />} />
+                        <Route path="appointments/:id/print" element={<PrintAppointmentPage />} />
+                    </Route>
                 </Route>
 
                 <Route path="*" element={<Navigate to="/" replace />} />

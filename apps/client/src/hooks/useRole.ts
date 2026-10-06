@@ -7,5 +7,6 @@ export const useRole = () => {
         role,
         isAdmin: role === 'admin',
         isReceptionist: role === 'receptionist',
+        isDoctor: role === 'doctor',
     };
 };

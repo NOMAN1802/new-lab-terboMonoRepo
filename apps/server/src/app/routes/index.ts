@@ -1,9 +1,12 @@
 import express from 'express';
 import { activityLogRoutes } from '../modules/ActivityLog/activity-log.route';
+import { appointmentRoutes } from '../modules/Appointment/appointment.route';
 import { publicReportRoutes } from '../modules/PublicReport/public-report.route';
 import { AuthRoutes } from '../modules/Auth/auth.route';
 import { commissionPayoutRoutes } from '../modules/CommissionPayout/commission-payout.route';
 import { dashboardRoutes } from '../modules/Dashboard/dashboard.route';
+import { doctorRoutes } from '../modules/Doctor/doctor.route';
+import { doctorScheduleRoutes } from '../modules/DoctorSchedule/doctor-schedule.route';
 import { invoiceRoutes } from '../modules/Invoice/invoice.route';
 import { patientRoutes } from '../modules/Patient/patient.route';
 import { paymentRoutes } from '../modules/Payment/payment.route';
@@ -22,6 +25,9 @@ const moduleRoutes = [
   { path: '/test-categories', route: testCategoryRoutes },
   { path: '/tests', route: testRoutes },
   { path: '/referrers', route: referrerRoutes },
+  { path: '/doctors', route: doctorRoutes },
+  { path: '/schedules', route: doctorScheduleRoutes },
+  { path: '/appointments', route: appointmentRoutes },
   { path: '/invoices', route: invoiceRoutes },
   { path: '/payments', route: paymentRoutes },
   { path: '/commission-payouts', route: commissionPayoutRoutes },

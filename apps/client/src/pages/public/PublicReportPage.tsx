@@ -55,8 +55,6 @@ const PublicReportPage = () => {
 
     useEffect(() => {
         let cancelled = false;
-        setIsLoading(true);
-        setLoadError(null);
 
         fetchPublicSummary(token)
             .then((result) => { if (!cancelled) setSummary(result); })
@@ -187,7 +185,16 @@ const PublicReportPage = () => {
                         {badLink ? t('pub.notFound') : t('pub.unreachable')}
                     </p>
                     {!badLink && (
-                        <Button variant="secondary" onClick={() => setReloadKey((n) => n + 1)}>
+                        <Button
+                            variant="secondary"
+                            onClick={() => {
+                                // Back to the loading state here, where the retry is
+                                // asked for, rather than inside the effect it triggers.
+                                setIsLoading(true);
+                                setLoadError(null);
+                                setReloadKey((n) => n + 1);
+                            }}
+                        >
                             {t('pub.retry')}
                         </Button>
                     )}

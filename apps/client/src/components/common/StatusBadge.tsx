@@ -14,8 +14,15 @@ const styles: Record<string, [string, string, string]> = {
     // Needs acting on — the loudest thing in the row.
     overdue: ['var(--slate-900)', 'var(--white)', 'var(--slate-900)'],
     cancelled: ['var(--slate-900)', 'var(--white)', 'var(--slate-900)'],
+    declined: ['var(--slate-900)', 'var(--white)', 'var(--slate-900)'],
 
     // Open: outlined, so it reads as an empty box still to be filled.
+    blocked: ['var(--slate-900)', 'var(--white)', 'var(--slate-900)'],
+    free: ['var(--surface-card)', 'var(--slate-600)', 'var(--slate-300)'],
+    past: ['var(--slate-100)', 'var(--text-faint)', 'var(--slate-200)'],
+    booked: ['var(--surface-card)', 'var(--slate-800)', 'var(--slate-400)'],
+    no_show: ['var(--slate-900)', 'var(--white)', 'var(--slate-900)'],
+    checked_in: ['var(--slate-200)', 'var(--slate-700)', 'var(--slate-200)'],
     unpaid: ['var(--surface-card)', 'var(--slate-800)', 'var(--slate-400)'],
     pending: ['var(--surface-card)', 'var(--slate-800)', 'var(--slate-400)'],
 
@@ -23,6 +30,7 @@ const styles: Record<string, [string, string, string]> = {
     partial: ['var(--slate-200)', 'var(--slate-700)', 'var(--slate-200)'],
     'partially paid': ['var(--slate-200)', 'var(--slate-700)', 'var(--slate-200)'],
     uploaded: ['var(--slate-200)', 'var(--slate-700)', 'var(--slate-200)'],
+    approved: ['var(--slate-200)', 'var(--slate-700)', 'var(--slate-200)'],
 
     // Done — deliberately quiet.
     paid: ['var(--slate-100)', 'var(--slate-600)', 'var(--slate-200)'],

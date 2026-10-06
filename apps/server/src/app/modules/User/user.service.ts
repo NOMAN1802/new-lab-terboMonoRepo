@@ -4,13 +4,42 @@ import config from '../../config';
 import AppError from '../../errors/AppError';
 import { QueryBuilder } from '../../builder/QueryBuilder';
 import { type TUser } from './user.interface';
+import { DoctorServices } from '../Doctor/doctor.service';
 import { User } from './user.model';
 
-const createUser = async (payload: TUser): Promise<TUser> => {
+type TCreateUser = TUser & {
+  specialty?: string;
+  degrees?: string;
+  consultationFee?: number;
+};
+
+const createUser = async (
+  payload: TCreateUser,
+  actorId: string
+): Promise<TUser> => {
   const existingUser = await User.isUserExistsByEmail(payload.email);
 
   if (existingUser) {
     throw new AppError(httpStatus.BAD_REQUEST, 'This user already exists!');
+  }
+
+  // A doctor is a user plus a clinical profile, created together so there is
+  // never a login without a profile or the other way round.
+  if (payload.role === 'doctor') {
+    const doctor = await DoctorServices.createDoctor(
+      {
+        name: payload.name,
+        specialty: payload.specialty as string,
+        degrees: payload.degrees,
+        phone: payload.mobileNumber,
+        consultationFee: payload.consultationFee as number,
+        email: payload.email,
+        password: payload.password,
+      },
+      actorId
+    );
+    const login = await User.findById(doctor.user);
+    return login as TUser;
   }
 
   const result = await User.create({ ...payload, status: payload.status ?? 'active' });
@@ -63,6 +92,13 @@ const updateUser = async (
     throw new AppError(httpStatus.NOT_FOUND, 'User not found');
   }
 
+  if (user.role === 'doctor' && payload.role && payload.role !== 'doctor') {
+    throw new AppError(
+      httpStatus.BAD_REQUEST,
+      'A doctor login cannot be given another role. Remove the doctor and create a new user instead.'
+    );
+  }
+
   if (payload.email && payload.email !== user.email) {
     const existing = await User.isUserExistsByEmail(payload.email);
     if (existing) {
@@ -82,10 +118,23 @@ const updateUser = async (
     { $set: payload },
     { new: true, runValidators: true }
   );
+
+  if (user.role === 'doctor') {
+    await DoctorServices.syncProfileFromUser(id, {
+      name: payload.name,
+      mobileNumber: payload.mobileNumber,
+      status: payload.status,
+    });
+  }
+
   return result;
 };
 
-const deleteUser = async (id: string): Promise<boolean> => {
+const deleteUser = async (id: string, actorId: string): Promise<boolean> => {
+  // A doctor goes through the doctor rules (not while schedules are live), and
+  // that removes the login too.
+  if (await DoctorServices.deleteDoctorByUser(id, actorId)) return true;
+
   const result = await User.findOneAndUpdate(
     { _id: id, isDeleted: false },
     { $set: { isDeleted: true, status: 'inactive' } },

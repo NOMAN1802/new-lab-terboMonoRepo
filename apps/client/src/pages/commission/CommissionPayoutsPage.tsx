@@ -1,6 +1,8 @@
 import { useState } from 'react';
 import { useSearchParams } from 'react-router-dom';
 import { toast } from 'sonner';
+import ConfirmModal from '@/components/common/ConfirmModal';
+import type { ConfirmRequest } from '@/components/common/ConfirmModal';
 import ErrorState from '@/components/common/ErrorState';
 import Loader from '@/components/common/Loader';
 import Button from '@/components/ui/Button';
@@ -20,6 +22,7 @@ const CommissionPayoutsPage = () => {
     const t = useT();
     const [searchParams, setSearchParams] = useSearchParams();
     const referrerId = searchParams.get('referrer') ?? '';
+    const [confirmRequest, setConfirmRequest] = useState<ConfirmRequest | null>(null);
     const [note, setNote] = useState('');
 
     const { data: referrerData } = useGetReferrersQuery({ limit: 200 });
@@ -34,29 +37,29 @@ const CommissionPayoutsPage = () => {
     const referrers = referrerData?.items ?? [];
     const payouts = payoutData?.items ?? [];
 
-    const handlePayout = async () => {
+    const handlePayout = () => {
         if (!pending || pending.invoices.length === 0) return;
 
-        if (
-            !window.confirm(
-                `Record a payout of ${money(pending.totalPending)} to ${pending.referrer.name} covering ${pending.invoices.length} invoice(s)?`,
-            )
-        ) {
-            return;
-        }
+        setConfirmRequest({
+            title: 'Record this payout?',
+            description: `${money(pending.totalPending)} to ${pending.referrer.name}, covering ${pending.invoices.length} invoice(s).`,
+            confirmLabel: 'Record payout',
+            tone: 'primary',
+            onConfirm: async () => {
+                try {
+                    const payout = await createPayout({
+                        referrer: referrerId,
+                        invoiceIds: pending.invoices.map((invoice) => invoice._id),
+                        note: note.trim() || undefined,
+                    }).unwrap();
 
-        try {
-            const payout = await createPayout({
-                referrer: referrerId,
-                invoiceIds: pending.invoices.map((invoice) => invoice._id),
-                note: note.trim() || undefined,
-            }).unwrap();
-
-            toast.success(`Payout ${payout.payoutNumber} recorded`);
-            setNote('');
-        } catch (error) {
-            toast.error(apiErrorMessage(error, 'Could not record the payout'));
-        }
+                    toast.success(`Payout ${payout.payoutNumber} recorded`);
+                    setNote('');
+                } catch (error) {
+                    toast.error(apiErrorMessage(error, 'Could not record the payout'));
+                }
+            },
+        });
     };
 
     return (
@@ -283,6 +286,8 @@ const CommissionPayoutsPage = () => {
                     />
                 </Panel>
             )}
+
+            <ConfirmModal request={confirmRequest} onClose={() => setConfirmRequest(null)} />
         </>
     );
 };

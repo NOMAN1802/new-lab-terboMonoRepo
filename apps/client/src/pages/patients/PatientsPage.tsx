@@ -1,6 +1,8 @@
 import { useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { toast } from 'sonner';
+import ConfirmModal from '@/components/common/ConfirmModal';
+import type { ConfirmRequest } from '@/components/common/ConfirmModal';
 import ErrorState from '@/components/common/ErrorState';
 import Loader from '@/components/common/Loader';
 import Button from '@/components/ui/Button';
@@ -33,6 +35,7 @@ const actionIconStyle: CSSProperties = {
 };
 
 const PatientsPage = () => {
+    const [confirmRequest, setConfirmRequest] = useState<ConfirmRequest | null>(null);
     const [search, setSearch] = useState('');
     const [page, setPage] = useState(1);
     const { isAdmin } = useRole();
@@ -47,17 +50,20 @@ const PatientsPage = () => {
 
     const [deletePatient, { isLoading: isDeleting }] = useDeletePatientMutation();
 
-    const handleDelete = async (id: string, name: string) => {
-        if (!window.confirm(`Delete patient "${name}"? Their visit history stays on file.`)) {
-            return;
-        }
-        try {
-            await deletePatient(id).unwrap();
-            toast.success('Patient deleted');
-        } catch (error) {
-            toast.error(apiErrorMessage(error, 'Could not delete patient'));
-        }
-    };
+    const handleDelete = (id: string, name: string) =>
+        setConfirmRequest({
+            title: `Delete patient "${name}"?`,
+            description: 'Their visit history stays on file.',
+            confirmLabel: 'Delete patient',
+            onConfirm: async () => {
+                try {
+                    await deletePatient(id).unwrap();
+                    toast.success('Patient deleted');
+                } catch (error) {
+                    toast.error(apiErrorMessage(error, 'Could not delete patient'));
+                }
+            },
+        });
 
     const patients = data?.items ?? [];
     const total = data?.meta.total ?? 0;
@@ -184,6 +190,8 @@ const PatientsPage = () => {
                     <Pagination page={page} totalPages={totalPages} busy={isFetching} onChange={setPage} />
                 </>
             )}
+
+            <ConfirmModal request={confirmRequest} onClose={() => setConfirmRequest(null)} />
         </>
     );
 };

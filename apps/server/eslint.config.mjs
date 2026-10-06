@@ -31,6 +31,14 @@ export default tseslint.config(
     },
   },
   {
+    // The check scripts and the Vercel entry are plain Node CommonJS: they run
+    // straight from disk with no build step, so require() is how they load.
+    files: ["scripts/**/*.js", "api/**/*.js"],
+    rules: {
+      "@typescript-eslint/no-require-imports": "off",
+    },
+  },
+  {
     ignores: ["**/node_modules/", "**/dist/"],
   }
 );

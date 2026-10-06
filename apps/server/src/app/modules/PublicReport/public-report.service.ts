@@ -57,7 +57,7 @@ const getSummary = async (token: string) => {
  */
 const visibleItems = (invoice: TInvoice) =>
   invoice.items
-    .filter((item) => !item.isCancelled)
+    .filter((item) => !item.isCancelled && item.kind !== 'consultation')
     .map((item) => ({
       itemId: String((item as unknown as { _id: unknown })._id),
       testName: item.testName,

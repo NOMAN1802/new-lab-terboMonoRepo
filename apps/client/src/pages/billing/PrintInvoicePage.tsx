@@ -170,6 +170,11 @@ const InvoiceCopy = ({ invoice, receipts, kind }: { invoice: Invoice; receipts: 
                         'Self'
                     )}
                 </Field>
+                {patient.address && (
+                    <Field label="Address" wide>
+                        {patient.address}
+                    </Field>
+                )}
             </div>
 
             <table className="bill mt-2 w-full">

@@ -5,11 +5,11 @@ import { DashboardControllers } from './dashboard.controller';
 
 const router = express.Router();
 
-// One endpoint, two payloads. The controller picks by role so a receptionist
-// can never receive the financial overview.
+// One endpoint, three payloads. The controller picks by role so a receptionist
+// can never receive the financial overview, nor a doctor anyone else's work.
 router.get(
   '/',
-  auth(USER_ROLE.admin, USER_ROLE.receptionist),
+  auth(USER_ROLE.admin, USER_ROLE.receptionist, USER_ROLE.doctor),
   DashboardControllers.getDashboard
 );
 

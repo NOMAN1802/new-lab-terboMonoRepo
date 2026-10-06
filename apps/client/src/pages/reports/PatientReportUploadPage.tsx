@@ -100,7 +100,9 @@ const PatientReportUploadPage = () => {
     const rows: ReportRow[] = invoices
         .filter((invoice) => !invoice.isCancelled)
         .flatMap((invoice) =>
-            invoice.items.map((item) => ({
+            invoice.items
+                .filter((item) => item.kind !== 'consultation')
+                .map((item) => ({
                 id: `${invoice._id}-${item._id}`,
                 invoiceId: invoice._id,
                 invoiceNumber: invoice.invoiceNumber,

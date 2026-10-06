@@ -1,5 +1,7 @@
 import { useState } from 'react';
 import { toast } from 'sonner';
+import ConfirmModal from '@/components/common/ConfirmModal';
+import type { ConfirmRequest } from '@/components/common/ConfirmModal';
 import ErrorState from '@/components/common/ErrorState';
 import Loader from '@/components/common/Loader';
 import Button from '@/components/ui/Button';
@@ -32,6 +34,7 @@ const rowAction: React.CSSProperties = {
 
 const TestCategoriesPage = () => {
     const t = useT();
+    const [confirmRequest, setConfirmRequest] = useState<ConfirmRequest | null>(null);
     const [name, setName] = useState('');
     const [description, setDescription] = useState('');
     const [editing, setEditing] = useState<TestCategory | null>(null);
@@ -90,16 +93,21 @@ const TestCategoriesPage = () => {
         }
     };
 
-    const handleDelete = async (category: TestCategory) => {
-        if (!window.confirm(`Delete the "${category.name}" department?`)) return;
-        try {
-            await deleteCategory(category._id).unwrap();
-            toast.success('Department deleted');
-        } catch (error) {
-            // The API refuses when tests still reference it, and says how many.
-            toast.error(apiErrorMessage(error, 'Could not delete department'));
-        }
-    };
+    const handleDelete = (category: TestCategory) =>
+        setConfirmRequest({
+            title: `Delete the "${category.name}" department?`,
+            description: 'A department that still has tests in it cannot be deleted.',
+            confirmLabel: 'Delete department',
+            onConfirm: async () => {
+                try {
+                    await deleteCategory(category._id).unwrap();
+                    toast.success('Department deleted');
+                } catch (error) {
+                    // The API refuses when tests still reference it, and says how many.
+                    toast.error(apiErrorMessage(error, 'Could not delete department'));
+                }
+            },
+        });
 
     const categories = data?.items ?? [];
     const isSaving = isCreating || isUpdating;
@@ -200,6 +208,8 @@ const TestCategoriesPage = () => {
                     </p>
                 </>
             )}
+
+            <ConfirmModal request={confirmRequest} onClose={() => setConfirmRequest(null)} />
         </>
     );
 };

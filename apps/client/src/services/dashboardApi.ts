@@ -66,6 +66,43 @@ export type ReceptionistDashboard = {
     pendingPayments: Invoice[];
 };
 
+export type DoctorQueueEntry = {
+    _id: string;
+    serialNo: number;
+    startTime: string;
+    endTime: string;
+    status: 'booked' | 'checked_in' | 'completed' | 'cancelled' | 'no_show';
+    patientName: string;
+    age: number;
+    gender: string;
+    notes?: string;
+};
+
+export type DoctorDashboard = {
+    doctor: { name: string; doctorCode: string; specialty: string };
+    today: {
+        date: string;
+        total: number;
+        booked: number;
+        checkedIn: number;
+        completed: number;
+        noShow: number;
+        cancelled: number;
+    };
+    nextUp: DoctorQueueEntry | null;
+    queue: DoctorQueueEntry[];
+    pendingSchedules: {
+        _id: string;
+        date: string;
+        startTime: string;
+        endTime: string;
+        slotMinutes: number;
+        slotCount: number;
+        fee: number;
+    }[];
+    completedLast30: number;
+};
+
 /** The API returns one shape or the other, chosen by the caller's role. */
 export type DashboardData = AdminDashboard | ReceptionistDashboard;
 
@@ -86,7 +123,16 @@ export const dashboardApi = baseApi.injectEndpoints({
             transformResponse: (r: ApiResponse<DashboardData>) => r.data,
             providesTags: [{ type: 'Dashboard', id: 'ALL' }],
         }),
+
+        // Same URL as above: the server picks the payload from the login, and a
+        // doctor gets their own clinic. Kept as its own endpoint so the admin and
+        // reception screens never have to consider this shape.
+        getDoctorDashboard: builder.query<DoctorDashboard, void>({
+            query: () => ({ url: '/dashboard' }),
+            transformResponse: (r: ApiResponse<DoctorDashboard>) => r.data,
+            providesTags: [{ type: 'Dashboard', id: 'DOCTOR' }],
+        }),
     }),
 });
 
-export const { useGetDashboardQuery } = dashboardApi;
+export const { useGetDashboardQuery, useGetDoctorDashboardQuery } = dashboardApi;

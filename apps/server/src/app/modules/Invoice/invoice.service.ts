@@ -17,6 +17,7 @@ import {
 import { round2 } from '../../utils/money';
 import { generatePublicToken } from '../../utils/publicToken';
 import { recordActivity } from '../ActivityLog/activity-log.service';
+import { Appointment } from '../Appointment/appointment.model';
 import { CommissionPayout } from '../CommissionPayout/commission-payout.model';
 import { nextSequence } from '../Counter/counter.model';
 import { Patient } from '../Patient/patient.model';
@@ -107,6 +108,89 @@ const buildItems = async (
       reportStatus: 'pending' as const,
     };
   });
+};
+
+const isConsultation = (item: TInvoiceItem) => item.kind === 'consultation';
+
+/** True when no line on the invoice is a lab test. */
+const isConsultationOnly = (invoice: TInvoice) =>
+  invoice.items.length > 0 && invoice.items.every(isConsultation);
+
+export type TCreateConsultationInvoiceInput = {
+  patient: string;
+  appointment: Types.ObjectId;
+  doctor: { _id: Types.ObjectId; name: string; specialty: string };
+  fee: number;
+  visitDate: Date;
+};
+
+/**
+ * Bills a doctor consultation. It is an invoice of its own with one
+ * consultation line, not a line added to a lab-test invoice: editing, report
+ * handling and referrer commission all assume every line is a test, and
+ * keeping the two apart means none of them can touch the consultation. The
+ * fee comes from the approved schedule, never from the request.
+ */
+const createConsultationInvoice = async (
+  input: TCreateConsultationInvoiceInput,
+  userId: string
+): Promise<TInvoice> => {
+  const patient = await Patient.findOne({
+    _id: input.patient,
+    isDeleted: false,
+  });
+  if (!patient) throw new AppError(httpStatus.NOT_FOUND, 'Patient not found');
+
+  const items: TInvoiceItem[] = [
+    {
+      kind: 'consultation',
+      appointment: input.appointment,
+      doctor: input.doctor._id,
+      testCode: 'CONSULT',
+      testName: `Consultation — ${input.doctor.name}`,
+      categoryName: 'Consultation',
+      price: input.fee,
+      reportStatus: 'pending',
+    },
+  ];
+
+  // No referrer, no discount, no commission: the doctor is the one being seen,
+  // not someone who sent the patient.
+  const totals = computeTotals(items, 0, 'percent', 0, 0);
+
+  const invoice = await Invoice.create({
+    invoiceNumber: await buildInvoiceNumber(input.visitDate),
+    visitDate: input.visitDate,
+    patient: patient._id,
+    patientInfo: {
+      patientId: patient.patientId,
+      name: patient.name,
+      age: patient.age,
+      gender: patient.gender,
+      phone: patient.phone,
+      address: patient.address,
+    },
+    items,
+    discountPercent: 0,
+    commissionType: 'percent',
+    commissionValue: 0,
+    ...totals,
+    paidAmount: 0,
+    commissionStatus: 'pending',
+    createdBy: new Types.ObjectId(userId),
+  });
+
+  await recordActivity({
+    userId,
+    action: 'invoice.created',
+    entity: 'Invoice',
+    entityId: invoice._id,
+    entityLabel: invoice.invoiceNumber,
+    summary: `Billed consultation with ${input.doctor.name} for ${patient.name} — net ${invoice.netPayable}`,
+    meta: { net: invoice.netPayable, doctor: input.doctor.name, consultation: true },
+  });
+
+  return invoice;
 };
 
 const createInvoice = async (
@@ -278,7 +362,7 @@ const getInvoice = async (id: string): Promise<TInvoice> => {
    * opens an old invoice it acquires a token, once, and keeps it. Reprints
    * therefore produce the same QR every time.
    */
-  if (!invoice.publicToken) {
+  if (!invoice.publicToken && !isConsultationOnly(invoice)) {
     invoice.publicToken = generatePublicToken();
     await invoice.save();
   }
@@ -317,6 +401,13 @@ const updateInvoiceItems = async (
     throw new AppError(
       httpStatus.BAD_REQUEST,
       'Cannot modify a cancelled invoice'
+    );
+  }
+
+  if (invoice.items.some(isConsultation)) {
+    throw new AppError(
+      httpStatus.BAD_REQUEST,
+      'A consultation invoice cannot be edited. Cancel the appointment and book again.'
     );
   }
 
@@ -390,6 +481,13 @@ const cancelInvoiceItem = async (
   const item = invoice.items.find((entry) => String(entry._id) === itemId);
   if (!item) {
     throw new AppError(httpStatus.NOT_FOUND, 'Test not found on this invoice');
+  }
+
+  if (isConsultation(item)) {
+    throw new AppError(
+      httpStatus.BAD_REQUEST,
+      'A consultation is cancelled by cancelling its appointment.'
+    );
   }
 
   if (item.isCancelled) {
@@ -485,7 +583,8 @@ const cancelInvoiceItem = async (
 const cancelInvoice = async (
   id: string,
   userId: string,
-  reason?: string
+  reason?: string,
+  options: { fromAppointment?: boolean } = {}
 ): Promise<TInvoice> => {
   const invoice = await Invoice.findById(id);
   if (!invoice) throw new AppError(httpStatus.NOT_FOUND, 'Invoice not found');
@@ -499,6 +598,21 @@ const cancelInvoice = async (
       httpStatus.BAD_REQUEST,
       'Cannot cancel an invoice with payments recorded against it. Void the payments first.'
     );
+  }
+
+  // A consultation invoice belongs to its appointment: cancelling it alone
+  // would leave the patient booked and the slot held for nothing.
+  if (!options.fromAppointment) {
+    const liveAppointment = await Appointment.exists({
+      invoice: invoice._id,
+      status: { $in: ['booked', 'checked_in'] },
+    });
+    if (liveAppointment) {
+      throw new AppError(
+        httpStatus.CONFLICT,
+        'This invoice is for a booked appointment. Cancel the appointment instead.'
+      );
+    }
   }
 
   /**
@@ -562,6 +676,12 @@ const uploadItemReport = async (
   if (!item) {
     throw new AppError(httpStatus.NOT_FOUND, 'Test not found on this invoice');
   }
+  if (isConsultation(item)) {
+    throw new AppError(
+      httpStatus.BAD_REQUEST,
+      'A consultation has no report to upload.'
+    );
+  }
 
   const previous = item.reportFile;
   const stored = await uploadReportFile(file);
@@ -616,6 +736,13 @@ const markReportDelivered = async (
   const item = invoice.items.find((entry) => String(entry._id) === itemId);
   if (!item) {
     throw new AppError(httpStatus.NOT_FOUND, 'Test not found on this invoice');
+  }
+
+  if (isConsultation(item)) {
+    throw new AppError(
+      httpStatus.BAD_REQUEST,
+      'A consultation has no report to deliver.'
+    );
   }
 
   if (item.reportStatus !== 'uploaded') {
@@ -733,6 +860,7 @@ const getReportFile = async (
 
 export const InvoiceServices = {
   createInvoice,
+  createConsultationInvoice,
   getInvoices,
   getInvoice,
   getPatientInvoices,

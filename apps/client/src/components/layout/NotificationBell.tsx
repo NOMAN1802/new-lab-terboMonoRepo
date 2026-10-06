@@ -2,8 +2,12 @@ import { Fragment } from 'react';
 import type { CSSProperties } from 'react';
 import { Menu, Transition } from '@headlessui/react';
 import { useNavigate } from 'react-router-dom';
+import { useCancelOutcomes } from '@/hooks/useCancelOutcomes';
+import { useCancelRequests } from '@/hooks/useCancelRequests';
+import { usePatientsToInform } from '@/hooks/usePatientsToInform';
 import { useUnpaidInvoices } from '@/hooks/useUnpaidInvoices';
-import { formatDate, money } from '@/lib/format';
+import { formatDate, money, toDhakaDateInput } from '@/lib/format';
+import { useAcknowledgeCancelOutcomesMutation } from '@/services/appointmentsApi';
 import Icon from '@/components/ui/Icon';
 import { useT } from '@/i18n/useLanguage';
 
@@ -11,18 +15,30 @@ const PREVIEW = 5;
 
 /**
  * The design draws a bell with a count. There is no notifications feed, so it
- * is wired to the one thing that genuinely needs attention: invoices still
- * carrying a balance.
+ * is wired to what genuinely needs attention: invoices still carrying a
+ * balance, for an admin the cancellation requests waiting for an answer, and
+ * for a receptionist the answers to the requests they raised.
  */
 const NotificationBell = () => {
     const t = useT();
     const navigate = useNavigate();
-    const { invoices, total } = useUnpaidInvoices(PREVIEW);
+    const { invoices, total: unpaidTotal } = useUnpaidInvoices(PREVIEW);
+    const { requests, total: requestTotal } = useCancelRequests();
+    const { outcomes, total: outcomeTotal } = useCancelOutcomes();
+    const { patients: toInform, total: informTotal } = usePatientsToInform();
+    const [acknowledge] = useAcknowledgeCancelOutcomesMutation();
+    const total = unpaidTotal + requestTotal + outcomeTotal + informTotal;
+
+    // Opening an answer marks it read, so the count falls as the desk works through them.
+    const openOutcome = (outcome: (typeof outcomes)[number]) => {
+        void acknowledge({ ids: [outcome._id] });
+        navigate(`/appointments?date=${toDhakaDateInput(new Date(outcome.date))}`);
+    };
 
     return (
         <Menu as="div" style={{ position: 'relative' }}>
             <Menu.Button
-                aria-label={`${total} unpaid invoices`}
+                aria-label={`${total} notifications`}
                 style={{
                     position: 'relative',
                     display: 'inline-flex',
@@ -89,10 +105,282 @@ const NotificationBell = () => {
                         outline: 'none',
                     }}
                 >
+                    {informTotal > 0 && (
+                        <>
+                            <div
+                                style={{
+                                    padding: 'var(--space-3) var(--space-4)',
+                                    background: 'var(--danger-bg)',
+                                    borderBottom: '1px solid var(--border-card)',
+                                }}
+                            >
+                                <p
+                                    style={{
+                                        fontSize: 'var(--text-13)',
+                                        fontWeight: 'var(--fw-bold)' as CSSProperties['fontWeight'],
+                                        color: 'var(--text-heading)',
+                                    }}
+                                >
+                                    Patients to inform
+                                </p>
+                                <p style={{ fontSize: 'var(--text-12)', color: 'var(--text-muted)' }}>
+                                    {informTotal} cancelled by the doctor, still to be phoned
+                                </p>
+                            </div>
+
+                            {toInform.map((appointment) => (
+                                <Menu.Item key={appointment._id}>
+                                    {({ active }) => (
+                                        <button
+                                            type="button"
+                                            onClick={() => navigate('/appointments?callbacks=1')}
+                                            style={{
+                                                display: 'block',
+                                                width: '100%',
+                                                padding: '10px var(--space-4)',
+                                                border: 0,
+                                                background: active ? 'var(--surface-sunken)' : 'transparent',
+                                                cursor: 'pointer',
+                                                textAlign: 'left',
+                                                fontFamily: 'var(--font-sans)',
+                                            }}
+                                        >
+                                            <span
+                                                style={{
+                                                    display: 'block',
+                                                    fontSize: 'var(--text-13)',
+                                                    fontWeight: 'var(--fw-semibold)' as CSSProperties['fontWeight'],
+                                                    color: 'var(--text-heading)',
+                                                }}
+                                            >
+                                                {appointment.patientInfo.name} · {appointment.patientInfo.phone}
+                                            </span>
+                                            <span style={{ display: 'block', fontSize: 'var(--text-12)', color: 'var(--text-muted)' }}>
+                                                {formatDate(appointment.date)} {appointment.startTime} · {appointment.doctor.name}
+                                            </span>
+                                            <span style={{ display: 'block', fontSize: 'var(--text-12)', color: 'var(--danger-strong)' }}>
+                                                {appointment.callback?.reason}
+                                            </span>
+                                        </button>
+                                    )}
+                                </Menu.Item>
+                            ))}
+
+                            <Menu.Item>
+                                {({ active }) => (
+                                    <button
+                                        type="button"
+                                        onClick={() => navigate('/appointments?callbacks=1')}
+                                        style={{
+                                            width: '100%',
+                                            padding: '10px var(--space-4)',
+                                            border: 0,
+                                            borderTop: '1px solid var(--border-card)',
+                                            background: active ? 'var(--surface-sunken)' : 'transparent',
+                                            cursor: 'pointer',
+                                            fontFamily: 'var(--font-sans)',
+                                            fontSize: 'var(--text-12)',
+                                            fontWeight: 'var(--fw-semibold)' as CSSProperties['fontWeight'],
+                                            color: 'var(--brand)',
+                                        }}
+                                    >
+                                        See patients to phone
+                                    </button>
+                                )}
+                            </Menu.Item>
+                        </>
+                    )}
+
+                    {outcomeTotal > 0 && (
+                        <>
+                            <div
+                                style={{
+                                    padding: 'var(--space-3) var(--space-4)',
+                                    background: 'var(--brand-light)',
+                                    borderBottom: '1px solid var(--border-card)',
+                                }}
+                            >
+                                <p
+                                    style={{
+                                        fontSize: 'var(--text-13)',
+                                        fontWeight: 'var(--fw-bold)' as CSSProperties['fontWeight'],
+                                        color: 'var(--text-heading)',
+                                    }}
+                                >
+                                    Your cancellation requests
+                                </p>
+                                <p style={{ fontSize: 'var(--text-12)', color: 'var(--text-muted)' }}>
+                                    {outcomeTotal} answered by an admin
+                                </p>
+                            </div>
+
+                            {outcomes.map((outcome) => {
+                                const approved = outcome.cancellation?.status === 'approved';
+                                return (
+                                    <Menu.Item key={outcome._id}>
+                                        {({ active }) => (
+                                            <button
+                                                type="button"
+                                                onClick={() => openOutcome(outcome)}
+                                                style={{
+                                                    display: 'block',
+                                                    width: '100%',
+                                                    padding: '10px var(--space-4)',
+                                                    border: 0,
+                                                    background: active ? 'var(--surface-sunken)' : 'transparent',
+                                                    cursor: 'pointer',
+                                                    textAlign: 'left',
+                                                    fontFamily: 'var(--font-sans)',
+                                                }}
+                                            >
+                                                <span
+                                                    style={{
+                                                        display: 'block',
+                                                        fontSize: 'var(--text-13)',
+                                                        fontWeight: 'var(--fw-semibold)' as CSSProperties['fontWeight'],
+                                                        color: 'var(--text-heading)',
+                                                    }}
+                                                >
+                                                    {outcome.patientInfo.name} · serial {outcome.serialNo}
+                                                </span>
+                                                <span style={{ display: 'block', fontSize: 'var(--text-12)', color: 'var(--text-muted)' }}>
+                                                    {formatDate(outcome.date)} {outcome.startTime} · {outcome.doctor.name}
+                                                </span>
+                                                <span
+                                                    style={{
+                                                        display: 'block',
+                                                        fontSize: 'var(--text-12)',
+                                                        color: approved ? 'var(--success-strong)' : 'var(--danger-strong)',
+                                                    }}
+                                                >
+                                                    {approved
+                                                        ? 'Approved: the appointment is cancelled'
+                                                        : `Refused by ${outcome.cancellation?.reviewedByName ?? 'an admin'}${
+                                                              outcome.cancellation?.reviewNote ? `: ${outcome.cancellation.reviewNote}` : ''
+                                                          }`}
+                                                </span>
+                                            </button>
+                                        )}
+                                    </Menu.Item>
+                                );
+                            })}
+
+                            <Menu.Item>
+                                {({ active }) => (
+                                    <button
+                                        type="button"
+                                        onClick={() => void acknowledge()}
+                                        style={{
+                                            width: '100%',
+                                            padding: '10px var(--space-4)',
+                                            border: 0,
+                                            borderTop: '1px solid var(--border-card)',
+                                            background: active ? 'var(--surface-sunken)' : 'transparent',
+                                            cursor: 'pointer',
+                                            fontFamily: 'var(--font-sans)',
+                                            fontSize: 'var(--text-12)',
+                                            fontWeight: 'var(--fw-semibold)' as CSSProperties['fontWeight'],
+                                            color: 'var(--brand)',
+                                        }}
+                                    >
+                                        Mark all as read
+                                    </button>
+                                )}
+                            </Menu.Item>
+                        </>
+                    )}
+
+                    {requestTotal > 0 && (
+                        <>
+                            <div
+                                style={{
+                                    padding: 'var(--space-3) var(--space-4)',
+                                    background: 'var(--warning-bg)',
+                                    borderBottom: '1px solid var(--border-card)',
+                                }}
+                            >
+                                <p
+                                    style={{
+                                        fontSize: 'var(--text-13)',
+                                        fontWeight: 'var(--fw-bold)' as CSSProperties['fontWeight'],
+                                        color: 'var(--text-heading)',
+                                    }}
+                                >
+                                    Cancellation requests
+                                </p>
+                                <p style={{ fontSize: 'var(--text-12)', color: 'var(--text-muted)' }}>
+                                    {requestTotal} waiting for your decision
+                                </p>
+                            </div>
+
+                            {requests.map((appointment) => (
+                                <Menu.Item key={appointment._id}>
+                                    {({ active }) => (
+                                        <button
+                                            type="button"
+                                            onClick={() => navigate('/appointments?requests=1')}
+                                            style={{
+                                                display: 'block',
+                                                width: '100%',
+                                                padding: '10px var(--space-4)',
+                                                border: 0,
+                                                background: active ? 'var(--surface-sunken)' : 'transparent',
+                                                cursor: 'pointer',
+                                                textAlign: 'left',
+                                                fontFamily: 'var(--font-sans)',
+                                            }}
+                                        >
+                                            <span
+                                                style={{
+                                                    display: 'block',
+                                                    fontSize: 'var(--text-13)',
+                                                    fontWeight: 'var(--fw-semibold)' as CSSProperties['fontWeight'],
+                                                    color: 'var(--text-heading)',
+                                                }}
+                                            >
+                                                {appointment.patientInfo.name} · serial {appointment.serialNo}
+                                            </span>
+                                            <span style={{ display: 'block', fontSize: 'var(--text-12)', color: 'var(--text-muted)' }}>
+                                                {formatDate(appointment.date)} {appointment.startTime} · {appointment.doctor.name}
+                                            </span>
+                                            <span style={{ display: 'block', fontSize: 'var(--text-12)', color: 'var(--warning-strong)' }}>
+                                                {appointment.cancellation?.requestedByName}: {appointment.cancellation?.reason}
+                                            </span>
+                                        </button>
+                                    )}
+                                </Menu.Item>
+                            ))}
+
+                            <Menu.Item>
+                                {({ active }) => (
+                                    <button
+                                        type="button"
+                                        onClick={() => navigate('/appointments?requests=1')}
+                                        style={{
+                                            width: '100%',
+                                            padding: '10px var(--space-4)',
+                                            border: 0,
+                                            borderTop: '1px solid var(--border-card)',
+                                            background: active ? 'var(--surface-sunken)' : 'transparent',
+                                            cursor: 'pointer',
+                                            fontFamily: 'var(--font-sans)',
+                                            fontSize: 'var(--text-12)',
+                                            fontWeight: 'var(--fw-semibold)' as CSSProperties['fontWeight'],
+                                            color: 'var(--brand)',
+                                        }}
+                                    >
+                                        Review cancellation requests
+                                    </button>
+                                )}
+                            </Menu.Item>
+                        </>
+                    )}
+
                     <div
                         style={{
                             padding: 'var(--space-3) var(--space-4)',
                             background: 'var(--surface-sunken)',
+                            borderTop: requestTotal + outcomeTotal + informTotal > 0 ? '1px solid var(--border-card)' : undefined,
                             borderBottom: '1px solid var(--border-card)',
                         }}
                     >
@@ -106,7 +394,7 @@ const NotificationBell = () => {
                             {t('shell.awaitingPayment')}
                         </p>
                         <p style={{ fontSize: 'var(--text-12)', color: 'var(--text-muted)' }}>
-                            {total === 0 ? t('shell.allSettled') : `${total} · ${t('status.unpaid')}`}
+                            {unpaidTotal === 0 ? t('shell.allSettled') : `${unpaidTotal} · ${t('status.unpaid')}`}
                         </p>
                     </div>
 

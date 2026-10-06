@@ -3,6 +3,7 @@ import type { CSSProperties } from 'react';
 const ROLES: Record<string, [string, string, string]> = {
     admin: ['var(--success-bg)', 'var(--success-strong)', 'var(--teal-200)'],
     receptionist: ['var(--info-bg)', 'var(--brand-dark)', 'var(--indigo-200)'],
+    doctor: ['var(--accent-light)', 'var(--accent-dark)', 'var(--teal-200)'],
 };
 
 /** Permission level. Uppercase and bordered so it reads apart from StatusBadge. */

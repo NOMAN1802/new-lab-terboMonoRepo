@@ -13,7 +13,6 @@ const {
 
 const DIST = require('path').join(__dirname, '..', 'dist', 'app');
 const { User } = require(`${DIST}/modules/User/user.model`);
-const { Patient } = require(`${DIST}/modules/Patient/patient.model`);
 const { TestCategory } = require(`${DIST}/modules/TestCategory/test-category.model`);
 const { Test } = require(`${DIST}/modules/Test/test.model`);
 const { Referrer } = require(`${DIST}/modules/Referrer/referrer.model`);
@@ -98,7 +97,7 @@ const rejects = async (label, fn, matcher) => {
         check('patient id assigned', patient.patientId, 'PT-000001');
 
         console.log('--- 1: booking 3 tests (2000) with 10% discount / 15% commission ---');
-        let invoice = await InvoiceServices.createInvoice(
+        const invoice = await InvoiceServices.createInvoice(
             { patient: String(patient._id), referrer: String(referrer._id),
               testIds: [String(cbc._id), String(lipid._id), String(xray._id)] },
             String(reception._id)
@@ -227,10 +226,15 @@ const rejects = async (label, fn, matcher) => {
         const asAdmin = serializeInvoice(current, 'admin');
         const asReception = serializeInvoice(current, 'receptionist');
 
-        // The commission line prints on the invoice, and a receptionist is the
-        // one printing it, so per-invoice figures are returned to both roles.
+        // What the centre pays the referring doctor is arranged and settled by an
+        // admin alone, so no commission figure reaches a receptionist, even on an
+        // invoice they print. The patient side of the invoice stays in full.
         check('admin sees commission', typeof asAdmin.commissionAmount, 'number');
-        check('receptionist: commission retained for the invoice', asReception.commissionAmount, 270);
+        check('receptionist: commission amount withheld', 'commissionAmount' in asReception, false);
+        check('receptionist: commission terms withheld',
+            ['commissionType', 'commissionValue'].some((field) => field in asReception), false);
+        check('receptionist: commission status withheld',
+            ['commissionStatus', 'commissionPayout'].some((field) => field in asReception), false);
         check('receptionist: gross retained', asReception.grossAmount, 2000);
         check('receptionist: discount retained', asReception.discountAmount, 200);
         check('receptionist: net retained', asReception.netPayable, 1800);
@@ -260,6 +264,27 @@ const rejects = async (label, fn, matcher) => {
         );
 
         console.log('\n--- 8: commission payout settles accrued commission ---');
+        // Commission is paid once the patient has paid. The first invoice still
+        // owes 800 after the void in step 4, so its commission is accrued but
+        // not yet payable.
+        const awaiting = await CommissionPayoutServices.getPendingCommission(
+            String(referrer._id)
+        );
+        check('nothing payable while the patient still owes', awaiting.invoices.length, 0);
+        check('the accrued commission is held back',
+            [awaiting.awaitingSettlement.invoiceCount, awaiting.awaitingSettlement.total], [1, 270]);
+        await rejects(
+            'a payout is refused until the patient has settled',
+            () => CommissionPayoutServices.createPayout(
+                { referrer: String(referrer._id) }, String(admin._id)
+            ),
+            'Nothing payable yet'
+        );
+
+        await PaymentServices.createPayment(
+            { invoice: String(invoice._id), amount: 800 }, String(reception._id)
+        );
+
         const pendingBefore = await CommissionPayoutServices.getPendingCommission(
             String(referrer._id)
         );
@@ -298,8 +323,9 @@ const rejects = async (label, fn, matcher) => {
         ]))[0].total;
 
         check('cash collected matches the payment ledger', financial.cashCollected, ledgerTotal);
-        // 1000 on the first invoice (800 of it voided) + 700 taken at the counter
-        check('cash collected excludes the voided receipt', financial.cashCollected, 1700);
+        // 1000 on the first invoice, the 800 receipt that was voided (excluded),
+        // the 800 taken to settle it before the payout, and 700 at the counter.
+        check('cash collected excludes the voided receipt', financial.cashCollected, 2500);
         // invoice, tampered, same-day, counter-settled, fully-discounted, walk-in
         check('invoices counted', financial.invoiceCount, 6);
         check('gross billed', financial.grossBilled, 2000 + 800 + 800 + 700 + 500 + 500);

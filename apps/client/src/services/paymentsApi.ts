@@ -10,7 +10,10 @@ export type Payment = {
     invoiceNumber: string;
     patient: string;
     patientName: string;
+    /** Negative for a refund. */
     amount: number;
+    /** Absent on older receipts, which are all payments. */
+    kind?: 'payment' | 'refund';
     method: 'cash';
     paymentDate: string;
     receivedBy: { _id: string; name: string; email: string } | string;
@@ -20,6 +23,14 @@ export type Payment = {
     voidedAt?: string;
     voidReason?: string;
     createdAt: string;
+};
+
+export type RefundInput = {
+    invoice: string;
+    amount: number;
+    reason: string;
+    /** Cancel the invoice in the same step; honoured only when the refund clears what was paid. */
+    cancelInvoice?: boolean;
 };
 
 export type CreatePaymentInput = {
@@ -71,6 +82,20 @@ export const paymentsApi = baseApi.injectEndpoints({
             ],
         }),
 
+        refundPayment: builder.mutation<PaymentResult, RefundInput>({
+            query: (body) => ({ url: '/payments/refund', method: 'POST', body }),
+            transformResponse: (r: ApiResponse<PaymentResult>) => r.data,
+            invalidatesTags: (_r, _e, { invoice }) => [
+                { type: 'Payments', id: 'LIST' },
+                { type: 'Payments', id: `INVOICE-${invoice}` },
+                { type: 'Invoices', id: invoice },
+                { type: 'Invoices', id: 'LIST' },
+                { type: 'Appointments', id: 'LIST' },
+                { type: 'Dashboard', id: 'ALL' },
+                { type: 'Reports' },
+            ],
+        }),
+
         voidPayment: builder.mutation<
             PaymentResult,
             { id: string; reason: string; invoiceId: string }
@@ -97,5 +122,6 @@ export const {
     useGetPaymentsQuery,
     useGetInvoicePaymentsQuery,
     useCreatePaymentMutation,
+    useRefundPaymentMutation,
     useVoidPaymentMutation,
 } = paymentsApi;

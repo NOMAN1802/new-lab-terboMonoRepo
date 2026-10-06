@@ -82,7 +82,13 @@ const FinancialReportPage = () => {
             ) : (
                 <>
                     <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(min(230px, 100%),1fr))', gap: 'var(--gap-grid)' }}>
-                        <StatCard label={t('dash.cashCollected')} value={money(summary.cashCollected)} icon="banknote" accent="accent" />
+                        <StatCard
+                            label={t('dash.cashCollected')}
+                            value={money(summary.cashCollected)}
+                            icon="banknote"
+                            accent="accent"
+                            caption={summary.cashRefunded ? `After ${money(summary.cashRefunded)} refunded` : undefined}
+                        />
                         <StatCard
                             label={t('rep.netBilled')}
                             value={money(summary.netBilled)}

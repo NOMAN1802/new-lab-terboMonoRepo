@@ -1,6 +1,8 @@
 import { useState } from 'react';
 import { Link } from 'react-router-dom';
 import { toast } from 'sonner';
+import ConfirmModal from '@/components/common/ConfirmModal';
+import type { ConfirmRequest } from '@/components/common/ConfirmModal';
 import ErrorState from '@/components/common/ErrorState';
 import Loader from '@/components/common/Loader';
 import StatusBadge from '@/components/common/StatusBadge';
@@ -50,6 +52,7 @@ const rowAction: React.CSSProperties = {
 
 const ReferrersPage = () => {
     const t = useT();
+    const [confirmRequest, setConfirmRequest] = useState<ConfirmRequest | null>(null);
     const [search, setSearch] = useState('');
     const [isFormOpen, setFormOpen] = useState(false);
     const [editing, setEditing] = useState<Referrer | null>(null);
@@ -125,17 +128,20 @@ const ReferrersPage = () => {
         }
     };
 
-    const handleDelete = async (referrer: Referrer) => {
-        if (!window.confirm(`Deactivate ${referrer.name}? Past invoices and any unpaid commission stay on record.`)) {
-            return;
-        }
-        try {
-            await deleteReferrer(referrer._id).unwrap();
-            toast.success('Referrer deactivated');
-        } catch (error) {
-            toast.error(apiErrorMessage(error, 'Could not deactivate referrer'));
-        }
-    };
+    const handleDelete = (referrer: Referrer) =>
+        setConfirmRequest({
+            title: `Deactivate ${referrer.name}?`,
+            description: 'Past invoices and any unpaid commission stay on record.',
+            confirmLabel: 'Deactivate',
+            onConfirm: async () => {
+                try {
+                    await deleteReferrer(referrer._id).unwrap();
+                    toast.success('Referrer deactivated');
+                } catch (error) {
+                    toast.error(apiErrorMessage(error, 'Could not deactivate referrer'));
+                }
+            },
+        });
 
     const referrers = data?.items ?? [];
     const isSaving = isCreating || isUpdating;
@@ -382,6 +388,8 @@ const ReferrersPage = () => {
                     </p>
                 </>
             )}
+
+            <ConfirmModal request={confirmRequest} onClose={() => setConfirmRequest(null)} />
         </>
     );
 };

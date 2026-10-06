@@ -159,15 +159,17 @@ const PatientDetailPage = () => {
                                             }}
                                         >
                                             {item.testName}
-                                            <span
-                                                title={`Report ${item.reportStatus}`}
-                                                style={{
-                                                    width: 6,
-                                                    height: 6,
-                                                    borderRadius: '50%',
-                                                    background: REPORT_DOT[item.reportStatus] ?? 'var(--slate-300)',
-                                                }}
-                                            />
+                                            {item.kind !== 'consultation' && (
+                                                <span
+                                                    title={`Report ${item.reportStatus}`}
+                                                    style={{
+                                                        width: 6,
+                                                        height: 6,
+                                                        borderRadius: '50%',
+                                                        background: REPORT_DOT[item.reportStatus] ?? 'var(--slate-300)',
+                                                    }}
+                                                />
+                                            )}
                                         </li>
                                     ))}
                                 </ul>

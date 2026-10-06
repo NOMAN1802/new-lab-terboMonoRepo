@@ -22,7 +22,26 @@ const voidPaymentValidationSchema = z.object({
   }),
 });
 
+const refundPaymentValidationSchema = z.object({
+  body: z.object({
+    invoice: objectId,
+    amount: z
+      .number({
+        required_error: 'Amount is required',
+        invalid_type_error: 'Amount must be a number',
+      })
+      .positive('Amount must be greater than zero'),
+    reason: z
+      .string({ required_error: 'A reason is required for a refund' })
+      .trim()
+      .min(3, 'A reason is required for a refund'),
+    // Refund and cancel in one step: only honoured when the refund clears what was paid.
+    cancelInvoice: z.boolean().optional(),
+  }),
+});
+
 export const PaymentValidations = {
   createPaymentValidationSchema,
   voidPaymentValidationSchema,
+  refundPaymentValidationSchema,
 };

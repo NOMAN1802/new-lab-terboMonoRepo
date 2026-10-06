@@ -24,6 +24,17 @@ const getDashboard = catchAsync(async (req, res) => {
     });
   }
 
+  if (role === 'doctor') {
+    const doctorView = await DashboardServices.getDoctorDashboard({ _id, role });
+
+    return sendResponse(res, {
+      statusCode: httpStatus.OK,
+      success: true,
+      message: 'Doctor dashboard retrieved successfully',
+      data: doctorView,
+    });
+  }
+
   const result = await DashboardServices.getReceptionistDashboard(_id);
 
   sendResponse(res, {

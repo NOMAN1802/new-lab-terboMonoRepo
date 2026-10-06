@@ -27,6 +27,10 @@ export type CreateUserInput = {
     password: string;
     role: UserRole;
     status?: 'active' | 'inactive';
+    /** The doctor profile. Required when the role is doctor, ignored otherwise. */
+    specialty?: string;
+    degrees?: string;
+    consultationFee?: number;
 };
 
 export type UsersListResponse = {

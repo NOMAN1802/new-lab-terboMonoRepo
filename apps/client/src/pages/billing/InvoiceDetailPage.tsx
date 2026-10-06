@@ -14,6 +14,7 @@ import { useRole } from '@/hooks/useRole';
 import { useT } from '@/i18n/useLanguage';
 import { useReportPreview } from '@/hooks/useReportPreview';
 import ReportPreviewModal from '@/components/common/ReportPreviewModal';
+import RefundModal from './RefundModal';
 import ReasonModal from '@/components/common/ReasonModal';
 import type { ReasonRequest } from '@/components/common/ReasonModal';
 import { apiErrorMessage, commissionBasis, formatDate, formatDateTime, money } from '@/lib/format';
@@ -72,6 +73,7 @@ const InvoiceDetailPage = () => {
 
     const [createPayment, { isLoading: isPaying }] = useCreatePaymentMutation();
     const [voidPayment, { isLoading: isVoiding }] = useVoidPaymentMutation();
+    const [refunding, setRefunding] = useState(false);
     const [uploadReport, { isLoading: isUploading }] = useUploadReportMutation();
     const [markDelivered] = useMarkReportDeliveredMutation();
     const { preview, openPreview, closePreview, downloadReport, downloadPreview } = useReportPreview();
@@ -233,6 +235,20 @@ const InvoiceDetailPage = () => {
                 onClose={() => setReasonRequest(null)}
             />
 
+            <RefundModal
+                target={
+                    refunding
+                        ? {
+                              _id: invoice._id,
+                              invoiceNumber: invoice.invoiceNumber,
+                              paidAmount: invoice.paidAmount,
+                              patientName: invoice.patientInfo.name,
+                          }
+                        : null
+                }
+                onClose={() => setRefunding(false)}
+            />
+
             <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: 16, flexWrap: 'wrap' }}>
                 <div>
                     <div style={{ display: 'flex', alignItems: 'center', gap: 12, flexWrap: 'wrap' }}>
@@ -254,6 +270,11 @@ const InvoiceDetailPage = () => {
                     <Button variant="secondary" icon="printer" onClick={() => navigate(`/billing/${invoice._id}/print`)}>
                         {t('ctrl.print')}
                     </Button>
+                    {isAdmin && !invoice.isCancelled && invoice.paidAmount > 0 && (
+                        <Button variant="secondary" icon="rotate-ccw" onClick={() => setRefunding(true)}>
+                            Refund
+                        </Button>
+                    )}
                     {isAdmin && !invoice.isCancelled && invoice.paidAmount === 0 && (
                         <Button variant="danger" onClick={handleCancel}>
                             {t('inv.cancelInvoice')}
@@ -306,7 +327,9 @@ const InvoiceDetailPage = () => {
                                     key: 'reportStatus',
                                     header: t('col.report'),
                                     render: (item) =>
-                                        item.isCancelled ? (
+                                        item.kind === 'consultation' ? (
+                                            <span style={{ color: 'var(--text-faint)' }}>—</span>
+                                        ) : item.isCancelled ? (
                                             <StatusBadge status="cancelled" />
                                         ) : (
                                             <StatusBadge status={REPORT_BADGE[item.reportStatus] ?? item.reportStatus} />
@@ -316,7 +339,9 @@ const InvoiceDetailPage = () => {
                                     key: 'actions',
                                     header: t('col.actions'),
                                     align: 'right',
-                                    render: (item) => (
+                                    render: (item) => item.kind === 'consultation' ? (
+                                        <span style={{ color: 'var(--text-faint)' }}>—</span>
+                                    ) : (
                                         <span style={{ display: 'inline-flex', gap: 4, justifyContent: 'flex-end' }}>
                                             {/*
                                               A cancelled line keeps no actions: there is nothing
@@ -453,11 +478,23 @@ const InvoiceDetailPage = () => {
                                             <span style={{ fontFamily: 'var(--font-mono)', fontSize: 11, fontWeight: 600, color: 'var(--brand)' }}>
                                                 {payment.receiptNumber}
                                             </span>
+                                            {payment.kind === 'refund' && (
+                                                <span style={{ marginLeft: 8, fontWeight: 700, color: 'var(--danger-strong)' }}>Refund</span>
+                                            )}
                                             <span style={{ marginLeft: 12, color: 'var(--text-muted)' }}>{formatDateTime(payment.paymentDate)}</span>
                                             <span style={{ marginLeft: 12, color: 'var(--text-muted)' }}>by {payment.receivedByName}</span>
+                                            {payment.kind === 'refund' && payment.note && (
+                                                <span style={{ marginLeft: 12, color: 'var(--text-muted)' }}>— {payment.note}</span>
+                                            )}
                                         </div>
                                         <div style={{ display: 'flex', alignItems: 'center', gap: 16 }}>
-                                            <span style={{ fontWeight: 600, color: 'var(--text-heading)', fontVariantNumeric: 'tabular-nums' }}>
+                                            <span
+                                                style={{
+                                                    fontWeight: 600,
+                                                    color: payment.kind === 'refund' ? 'var(--danger-strong)' : 'var(--text-heading)',
+                                                    fontVariantNumeric: 'tabular-nums',
+                                                }}
+                                            >
                                                 {money(payment.amount)}
                                             </span>
                                             {isAdmin && !payment.isVoided && (

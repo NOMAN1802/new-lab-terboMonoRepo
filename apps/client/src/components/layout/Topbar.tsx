@@ -21,6 +21,10 @@ type TopbarProps = {
 const PAGE_TITLES: [string, TranslationKey][] = [
     ['/patients/new', 'page.registerPatient'],
     ['/patients', 'page.patients'],
+    ['/doctors', 'page.doctors'],
+    ['/appointments/new', 'page.bookAppointment'],
+    ['/appointments', 'page.appointments'],
+    ['/schedules', 'page.schedules'],
     ['/billing/new', 'page.newBooking'],
     ['/billing', 'page.invoices'],
     ['/patient-reports', 'page.reportDelivery'],
@@ -81,7 +85,7 @@ const Topbar = ({ onMenuClick }: TopbarProps) => {
     const dispatch = useAppDispatch();
     const navigate = useNavigate();
     const location = useLocation();
-    const { isAdmin } = useRole();
+    const { isAdmin, isDoctor } = useRole();
     const t = useT();
 
     const handleLogout = () => {
@@ -127,12 +131,12 @@ const Topbar = ({ onMenuClick }: TopbarProps) => {
                 >
                     {t(titleKeyFor(location.pathname))}
                 </h1>
-                <GlobalSearch />
+                {!isDoctor && <GlobalSearch />}
             </div>
 
             <div style={{ display: 'flex', alignItems: 'center', gap: 'var(--space-2)', flexShrink: 0 }}>
                 <LanguageToggle />
-                <NotificationBell />
+                {!isDoctor && <NotificationBell />}
                 <Menu as="div" style={{ position: 'relative' }}>
                     <Menu.Button
                         style={{

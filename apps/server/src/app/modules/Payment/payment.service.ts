@@ -136,6 +136,99 @@ const createPayment = async (
   }
 };
 
+/**
+ * Hands money back to the patient. Recorded as a negative entry in the ledger,
+ * with its own RFD number, so the history shows both the receipt and the
+ * refund and the books net out. Admin only.
+ */
+const refundPayment = async (
+  payload: { invoice: string; amount: number; reason: string },
+  userId: string
+) => {
+  const session = await mongoose.startSession();
+
+  try {
+    session.startTransaction();
+
+    const invoice = await Invoice.findById(payload.invoice).session(session);
+    if (!invoice) throw new AppError(httpStatus.NOT_FOUND, 'Invoice not found');
+
+    const amount = round2(payload.amount);
+    if (!(amount > 0)) {
+      throw new AppError(httpStatus.BAD_REQUEST, 'A refund must be more than zero');
+    }
+
+    // Only what the patient has actually paid can go back.
+    if (amount > invoice.paidAmount) {
+      throw new AppError(
+        httpStatus.BAD_REQUEST,
+        invoice.paidAmount > 0
+          ? `Refund of ${amount} exceeds the ${invoice.paidAmount} paid on this invoice`
+          : 'Nothing has been paid on this invoice, so there is nothing to refund'
+      );
+    }
+
+    // A refund un-settles the invoice, and commission is only ever paid on a
+    // settled one. Once it has gone out it has to be reversed first.
+    if (invoice.commissionStatus === 'paid') {
+      throw new AppError(
+        httpStatus.CONFLICT,
+        'Commission on this invoice has already been paid out. Reverse that payout before refunding.'
+      );
+    }
+
+    const actor = await User.findById(userId).session(session);
+    if (!actor) throw new AppError(httpStatus.NOT_FOUND, 'User not found');
+
+    const seq = await nextSequence('refund', session);
+
+    const [refund] = await Payment.create(
+      [
+        {
+          receiptNumber: formatDocNumber('RFD', seq),
+          kind: 'refund',
+          invoice: invoice._id,
+          invoiceNumber: invoice.invoiceNumber,
+          patient: invoice.patient,
+          patientName: invoice.patientInfo.name,
+          amount: -amount,
+          paymentDate: new Date(),
+          receivedBy: new Types.ObjectId(userId),
+          receivedByName: actor.name,
+          note: payload.reason,
+        },
+      ],
+      { session }
+    );
+
+    const updatedInvoice = await syncInvoiceFromLedger(invoice._id!, session);
+
+    await session.commitTransaction();
+
+    await recordActivity({
+      userId,
+      action: 'payment.refunded',
+      entity: 'Payment',
+      entityId: refund._id,
+      entityLabel: refund.receiptNumber,
+      summary: `Refunded ${amount} to ${invoice.patientInfo.name} against ${invoice.invoiceNumber} — ${payload.reason}`,
+      meta: {
+        amount,
+        reason: payload.reason,
+        invoiceNumber: invoice.invoiceNumber,
+        paidAfter: updatedInvoice.paidAmount,
+      },
+    });
+
+    return { payment: refund, invoice: updatedInvoice };
+  } catch (error) {
+    await session.abortTransaction();
+    throw error;
+  } finally {
+    await session.endSession();
+  }
+};
+
 const voidPayment = async (id: string, userId: string, reason: string) => {
   const session = await mongoose.startSession();
 
@@ -149,6 +242,22 @@ const voidPayment = async (id: string, userId: string, reason: string) => {
       throw new AppError(httpStatus.BAD_REQUEST, 'Payment is already voided');
     }
 
+    // A receipt that refunds have been paid against stays on record: voiding it
+    // would leave a refund for money the books say was never taken.
+    if (payment.kind !== 'refund') {
+      const hasLiveRefund = await Payment.exists({
+        invoice: payment.invoice,
+        kind: 'refund',
+        isVoided: false,
+      }).session(session);
+      if (hasLiveRefund) {
+        throw new AppError(
+          httpStatus.CONFLICT,
+          'This invoice has refunds against it. Void the refunds first, or leave the receipt on record.'
+        );
+      }
+    }
+
     payment.set({
       isVoided: true,
       voidedAt: new Date(),
@@ -158,6 +267,15 @@ const voidPayment = async (id: string, userId: string, reason: string) => {
     await payment.save({ session });
 
     const invoice = await syncInvoiceFromLedger(payment.invoice, session);
+
+    // Voiding a refund after the patient has paid again would leave more on the
+    // invoice than it is worth.
+    if (round2(invoice.paidAmount - invoice.netPayable) > 0) {
+      throw new AppError(
+        httpStatus.CONFLICT,
+        'Voiding this would leave the invoice overpaid. The patient has already paid the amount again.'
+      );
+    }
 
     await session.commitTransaction();
 
@@ -231,6 +349,7 @@ const getInvoicePayments = async (invoiceId: string): Promise<TPayment[]> =>
 
 export const PaymentServices = {
   createPayment,
+  refundPayment,
   voidPayment,
   getPayments,
   getPayment,
