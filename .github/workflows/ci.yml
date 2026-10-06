@@ -14,6 +14,9 @@ jobs:
   ci:
     name: Type-check · Lint · Test · Sonar
     runs-on: ubuntu-latest
+    env:
+      HAS_SONAR_SERVER: ${{ secrets.SONAR_TOKEN_SERVER != '' }}
+      HAS_SONAR_CLIENT: ${{ secrets.SONAR_TOKEN_CLIENT != '' }}
 
     steps:
       - name: Checkout
@@ -23,8 +26,6 @@ jobs:
 
       - name: Setup pnpm
         uses: pnpm/action-setup@v4
-        with:
-          version: 9
 
       - name: Setup Node
         uses: actions/setup-node@v4
@@ -45,7 +46,7 @@ jobs:
         run: pnpm test:coverage
 
       - name: SonarQube scan — server
-        if: ${{ secrets.SONAR_TOKEN_SERVER != '' }}
+        if: env.HAS_SONAR_SERVER == 'true'
         uses: SonarSource/sonarqube-scan-action@v4
         with:
           projectBaseDir: apps/server
@@ -54,7 +55,7 @@ jobs:
           SONAR_HOST_URL: ${{ secrets.SONAR_HOST_URL }}
 
       - name: SonarQube scan — client
-        if: ${{ secrets.SONAR_TOKEN_CLIENT != '' }}
+        if: env.HAS_SONAR_CLIENT == 'true'
         uses: SonarSource/sonarqube-scan-action@v4
         with:
           projectBaseDir: apps/client
