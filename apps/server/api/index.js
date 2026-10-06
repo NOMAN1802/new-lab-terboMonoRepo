@@ -10,9 +10,9 @@
  */
 const mongoose = require('mongoose');
 
-const app = require('../dist/app').default;
-const config = require('../dist/app/config').default;
-const { seedAdmin } = require('../dist/app/modules/User/user.seeder');
+const app = require('../dist/vercel-bundle').app;
+const config = require('../dist/vercel-bundle').config;
+const { seedAdmin } = require('../dist/vercel-bundle');
 
 /**
  * Survives between invocations that reuse a warm container, and is a promise
