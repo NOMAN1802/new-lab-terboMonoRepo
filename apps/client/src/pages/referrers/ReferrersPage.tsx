@@ -182,6 +182,8 @@ const ReferrersPage = () => {
                             />
                             <TextField
                                 label={t('col.name')}
+                                disabled={Boolean(editing?.isDoctor)}
+                                hint={editing?.isDoctor ? 'Follows the doctor. Change it from Users.' : undefined}
                                 value={form.name}
                                 onChange={(e) => setForm({ ...form, name: e.target.value })}
                                 placeholder="Dr. Rakesh Shaha"
@@ -202,6 +204,7 @@ const ReferrersPage = () => {
                             <TextField
                                 label={t('col.phone')}
                                 type="tel"
+                                disabled={Boolean(editing?.isDoctor)}
                                 value={form.phone}
                                 onChange={(e) => setForm({ ...form, phone: e.target.value })}
                                 placeholder="01XXXXXXXXX"
@@ -255,12 +258,20 @@ const ReferrersPage = () => {
                             </div>
                         </div>
 
-                        <Checkbox
-                            accent="brand"
-                            label={t('fld.availableSelect')}
-                            checked={form.isActive}
-                            onChange={(e) => setForm({ ...form, isActive: e.target.checked })}
-                        />
+                        {!editing?.isDoctor && (
+                            <Checkbox
+                                accent="brand"
+                                label={t('fld.availableSelect')}
+                                checked={form.isActive}
+                                onChange={(e) => setForm({ ...form, isActive: e.target.checked })}
+                            />
+                        )}
+                        {editing?.isDoctor && (
+                            <p style={{ fontSize: 12, color: 'var(--text-muted)' }}>
+                                This is one of your doctors. The discount and commission here apply to lab tests they refer. Their
+                                share of appointment fees is set on the Doctors page.
+                            </p>
+                        )}
 
                         <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 12 }}>
                             <Button variant="secondary" onClick={closeForm}>
@@ -308,7 +319,25 @@ const ReferrersPage = () => {
                                     header: t('col.referrer'),
                                     render: (referrer) => (
                                         <div style={{ opacity: referrer.isActive ? 1 : 0.5 }}>
-                                            <p style={{ fontWeight: 600, color: 'var(--text-heading)', whiteSpace: 'nowrap' }}>{referrer.name}</p>
+                                            <p style={{ fontWeight: 600, color: 'var(--text-heading)', whiteSpace: 'nowrap' }}>
+                                                {referrer.name}
+                                                {referrer.isDoctor && (
+                                                    <span
+                                                        style={{
+                                                            marginLeft: 8,
+                                                            padding: '1px 8px',
+                                                            borderRadius: 999,
+                                                            fontSize: 10.5,
+                                                            fontWeight: 700,
+                                                            background: 'var(--accent-light)',
+                                                            color: 'var(--accent-dark)',
+                                                            verticalAlign: 'middle',
+                                                        }}
+                                                    >
+                                                        Doctor
+                                                    </span>
+                                                )}
+                                            </p>
                                             {referrer.designation && (
                                                 <p style={{ fontSize: 11, color: 'var(--text-faint)', marginTop: 2 }}>{referrer.designation}</p>
                                             )}
@@ -367,14 +396,16 @@ const ReferrersPage = () => {
                                             >
                                                 <Icon name="pencil" size={16} />
                                             </button>
-                                            <button
-                                                type="button"
-                                                aria-label={`Deactivate ${referrer.name}`}
-                                                onClick={() => handleDelete(referrer)}
-                                                style={{ ...rowAction, color: 'var(--danger-strong)' }}
-                                            >
-                                                <Icon name="power-off" size={16} />
-                                            </button>
+                                            {!referrer.isDoctor && (
+                                                <button
+                                                    type="button"
+                                                    aria-label={`Deactivate ${referrer.name}`}
+                                                    onClick={() => handleDelete(referrer)}
+                                                    style={{ ...rowAction, color: 'var(--danger-strong)' }}
+                                                >
+                                                    <Icon name="power-off" size={16} />
+                                                </button>
+                                            )}
                                         </span>
                                     ),
                                 },

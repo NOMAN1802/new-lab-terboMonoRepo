@@ -29,6 +29,12 @@ router.patch(
   DoctorControllers.updateDoctor
 );
 
+router.post(
+  '/:id/apply-share',
+  auth(USER_ROLE.admin),
+  DoctorControllers.applyShareToPast
+);
+
 router.delete('/:id', auth(USER_ROLE.admin), DoctorControllers.deleteDoctor);
 
 export const doctorRoutes = router;

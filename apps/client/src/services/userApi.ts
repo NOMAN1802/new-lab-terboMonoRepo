@@ -31,6 +31,9 @@ export type CreateUserInput = {
     specialty?: string;
     degrees?: string;
     consultationFee?: number;
+    /** The doctor's share of each appointment fee. */
+    appointmentShareType?: 'percent' | 'fixed';
+    appointmentShareValue?: number;
 };
 
 export type UsersListResponse = {
@@ -83,7 +86,12 @@ export const userApi = baseApi.injectEndpoints({
                 body: data,
             }),
             transformResponse: (response: ApiResponse<User>) => response.data,
-            invalidatesTags: [{ type: 'User', id: 'LIST' }],
+            // A doctor login also adds a doctor and a Referrers entry.
+            invalidatesTags: [
+                { type: 'User', id: 'LIST' },
+                { type: 'Doctors', id: 'LIST' },
+                { type: 'Referrers', id: 'LIST' },
+            ],
         }),
         updateUser: builder.mutation<User, { id: string; data: Partial<UpdateUserInput & { role?: string; status?: string }> }>({
             query: ({ id, data }) => ({
@@ -95,6 +103,8 @@ export const userApi = baseApi.injectEndpoints({
             invalidatesTags: (_result, _error, { id }) => [
                 { type: 'User', id },
                 { type: 'User', id: 'LIST' },
+                { type: 'Doctors', id: 'LIST' },
+                { type: 'Referrers', id: 'LIST' },
             ],
         }),
         deleteUser: builder.mutation<void, string>({
@@ -102,7 +112,11 @@ export const userApi = baseApi.injectEndpoints({
                 url: `/users/delete-user/${id}`,
                 method: 'DELETE',
             }),
-            invalidatesTags: [{ type: 'User', id: 'LIST' }],
+            invalidatesTags: [
+                { type: 'User', id: 'LIST' },
+                { type: 'Doctors', id: 'LIST' },
+                { type: 'Referrers', id: 'LIST' },
+            ],
         }),
     }),
 });

@@ -7,7 +7,7 @@ import ErrorState from '@/components/common/ErrorState';
 import Loader from '@/components/common/Loader';
 import BrandLogo from '@/components/brand/BrandLogo';
 import BrandMark from '@/components/brand/BrandMark';
-import { BRAND_BLUE, BRAND_GREEN, BRAND_TAGLINE_BN, BRAND_VALUES } from '@/lib/brand';
+import { BRAND_RED, BRAND_GREEN, BRAND_TAGLINE_BN, BRAND_VALUES } from '@/lib/brand';
 import { CENTRE } from '@/lib/centre';
 import { formatDateTime, money } from '@/lib/format';
 import { isUnreachableBase, publicReportUrl } from '@/lib/publicUrl';
@@ -352,7 +352,7 @@ const PrintInvoicePage = () => {
                     display: flex; align-items: center; justify-content: center;
                     pointer-events: none; opacity: .08;
                 }
-                .brand-rule { height: 2.5px; background: linear-gradient(90deg, ${BRAND_BLUE}, ${BRAND_GREEN}); }
+                .brand-rule { height: 2.5px; background: linear-gradient(90deg, ${BRAND_RED}, ${BRAND_GREEN}); }
                 .lh-contact { font-family: 'Noto Sans Bengali', 'Source Serif 4', serif; font-size: 9px; line-height: 1.45; color: #444; }
                 .copy-pill {
                     font-family: 'Space Grotesk', sans-serif; font-size: 10px; font-weight: 700;
@@ -373,7 +373,7 @@ const PrintInvoicePage = () => {
                 .band {
                     display: flex; align-items: center; justify-content: space-between; gap: 8px;
                     padding: 4px 10px; color: #fff;
-                    background: linear-gradient(90deg, ${BRAND_BLUE}, ${BRAND_GREEN});
+                    background: linear-gradient(90deg, ${BRAND_RED}, ${BRAND_GREEN});
                     font-family: 'Space Grotesk', sans-serif; font-size: 8px; font-weight: 700;
                     letter-spacing: .14em; text-transform: uppercase;
                 }

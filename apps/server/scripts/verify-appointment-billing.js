@@ -88,7 +88,7 @@ const dhakaDay = (offsetDays) =>
         const inv1 = await Invoice.findById(a1.invoice._id);
         check('invoice carries one consultation line at the schedule fee', [inv1.items.length, inv1.items[0].kind, inv1.items[0].price], [1, 'consultation', 500]);
         check('the line is labelled with the doctor', inv1.items[0].testName, 'Consultation — Dr A');
-        check('no test reference, no referrer, no discount, no commission', [inv1.items[0].test, inv1.referrer, inv1.discountPercent, inv1.commissionAmount], [undefined, undefined, 0, 0]);
+        check('no test reference and no discount; billed to the doctor own Referrers entry with no share set', [inv1.items[0].test, Boolean(inv1.referrer), inv1.referrerInfo && inv1.referrerInfo.name, inv1.discountPercent, inv1.commissionAmount], [undefined, true, 'Dr A', 0, 0]);
         check('unpaid by default', [inv1.netPayable, inv1.paidAmount, inv1.dueAmount, inv1.paymentStatus], [500, 0, 500, 'unpaid']);
         check('visit date is the appointment day', new Intl.DateTimeFormat('en-CA', { timeZone: 'Asia/Dhaka' }).format(inv1.visitDate), day);
         check('no report QR token is minted for a consultation', inv1.publicToken, undefined);

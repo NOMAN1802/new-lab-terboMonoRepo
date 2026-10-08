@@ -25,6 +25,7 @@ export type TActivityAction =
   | 'doctor.created'
   | 'doctor.updated'
   | 'doctor.removed'
+  | 'referrer.linked_doctor'
   | 'schedule.created'
   | 'schedule.approved'
   | 'schedule.declined'
@@ -40,6 +41,8 @@ export type TActivityAction =
   | 'appointment.cancelled'
   | 'appointment.cancel_requested'
   | 'appointment.cancel_rejected'
+  | 'appointment.rescheduled'
+  | 'prescription.saved'
   | 'user.created'
   | 'user.updated'
   | 'user.removed';

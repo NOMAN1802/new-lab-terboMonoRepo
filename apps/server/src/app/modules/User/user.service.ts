@@ -11,6 +11,8 @@ type TCreateUser = TUser & {
   specialty?: string;
   degrees?: string;
   consultationFee?: number;
+  appointmentShareType?: 'percent' | 'fixed';
+  appointmentShareValue?: number;
 };
 
 const createUser = async (
@@ -33,6 +35,8 @@ const createUser = async (
         degrees: payload.degrees,
         phone: payload.mobileNumber,
         consultationFee: payload.consultationFee as number,
+        appointmentShareType: payload.appointmentShareType,
+        appointmentShareValue: payload.appointmentShareValue,
         email: payload.email,
         password: payload.password,
       },

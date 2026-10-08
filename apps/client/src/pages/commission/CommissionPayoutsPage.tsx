@@ -15,10 +15,30 @@ import Select from '@/components/ui/Select';
 import TextField from '@/components/ui/TextField';
 import { apiErrorMessage, commissionBasis, formatDate, money } from '@/lib/format';
 import { useCreateCommissionPayoutMutation, useGetCommissionPayoutsQuery, useGetPendingCommissionQuery } from '@/services/commissionPayoutsApi';
-import type { CommissionPayout } from '@/services/commissionPayoutsApi';
+import type { CommissionPayout, PayoutKind } from '@/services/commissionPayoutsApi';
 import { useGetReferrersQuery } from '@/services/referrersApi';
 
-const CommissionPayoutsPage = () => {
+const COPY: Record<PayoutKind, { title: string; subtitle: string; settle: string; covers: string; empty: string }> = {
+    lab: {
+        title: 'Doctor commission',
+        subtitle:
+            'Pay a referring doctor for the lab tests they sent in. Commission accrues on their standing terms as invoices are booked, and becomes payable once the patient has paid.',
+        settle: 'Settle a referrer',
+        covers: 'Every settled lab invoice for the referrer is covered by one payout',
+        empty: 'No lab commission is waiting for this referrer.',
+    },
+    appointment: {
+        title: "Doctor's appointment fee payment",
+        subtitle:
+            "Pay a doctor their share of the consultation fees from their appointments. The share is set per doctor on the Doctors page and becomes payable once the patient has paid.",
+        settle: 'Pay a doctor',
+        covers: 'Every paid appointment not yet settled is covered by one payout',
+        empty: 'No appointment fee share is waiting for this doctor.',
+    },
+};
+
+const CommissionPayoutsPage = ({ kind = 'lab' }: { kind?: PayoutKind }) => {
+    const copy = COPY[kind];
     const t = useT();
     const [searchParams, setSearchParams] = useSearchParams();
     const referrerId = searchParams.get('referrer') ?? '';
@@ -26,15 +46,16 @@ const CommissionPayoutsPage = () => {
     const [note, setNote] = useState('');
 
     const { data: referrerData } = useGetReferrersQuery({ limit: 200 });
-    const { data: payoutData, isLoading, isError, refetch } = useGetCommissionPayoutsQuery();
-    const { data: pending, isFetching: loadingPending } = useGetPendingCommissionQuery(referrerId, { skip: !referrerId });
+    const { data: payoutData, isLoading, isError, refetch } = useGetCommissionPayoutsQuery({ kind });
+    const { data: pending, isFetching: loadingPending } = useGetPendingCommissionQuery({ referrerId, kind }, { skip: !referrerId });
 
     const [createPayout, { isLoading: isPaying }] = useCreateCommissionPayoutMutation();
 
     // Only settled invoices can be paid out, so this is what gates the control.
     const payable = (pending?.invoices.length ?? 0) > 0;
 
-    const referrers = referrerData?.items ?? [];
+    // Appointment fees are only ever owed to the centre's own doctors.
+    const referrers = (referrerData?.items ?? []).filter((referrer) => kind === 'lab' || referrer.isDoctor);
     const payouts = payoutData?.items ?? [];
 
     const handlePayout = () => {
@@ -49,6 +70,7 @@ const CommissionPayoutsPage = () => {
                 try {
                     const payout = await createPayout({
                         referrer: referrerId,
+                        kind,
                         invoiceIds: pending.invoices.map((invoice) => invoice._id),
                         note: note.trim() || undefined,
                     }).unwrap();
@@ -65,13 +87,13 @@ const CommissionPayoutsPage = () => {
     return (
         <>
             <div>
-                <h2 style={{ fontSize: 20, fontWeight: 700, color: 'var(--text-heading)' }}>{t('comm.title')}</h2>
+                <h2 style={{ fontSize: 20, fontWeight: 700, color: 'var(--text-heading)' }}>{copy.title}</h2>
                 <p style={{ marginTop: 4, fontSize: 13, color: 'var(--text-muted)' }}>
-                    {t('comm.subtitle')}
+                    {copy.subtitle}
                 </p>
             </div>
 
-            <Panel title={t('ttl.settleReferrer')} subtitle={t('ttl.payoutCovers')}>
+            <Panel title={copy.settle} subtitle={copy.covers}>
                 <div style={{ display: 'flex', flexDirection: 'column', gap: 18 }}>
                     <Select
                         value={referrerId}
@@ -79,7 +101,7 @@ const CommissionPayoutsPage = () => {
                             const next = e.target.value;
                             setSearchParams(next ? { referrer: next } : {});
                         }}
-                        placeholder={t('ph.selectReferrer')}
+                        placeholder={kind === 'appointment' ? 'Select a doctor' : t('ph.selectReferrer')}
                         options={referrers.map((referrer) => ({
                             label: `${referrer.referrerCode} · ${referrer.name}`,
                             value: referrer._id,
@@ -155,7 +177,12 @@ const CommissionPayoutsPage = () => {
                                                     header: t('col.invoice'),
                                                     mono: true,
                                                     render: (invoice) => (
-                                                        <span style={{ fontWeight: 600, color: 'var(--brand)' }}>{invoice.invoiceNumber}</span>
+                                                        <span style={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
+                                                            <span style={{ fontWeight: 600, color: 'var(--brand)' }}>{invoice.invoiceNumber}</span>
+                                                            <span style={{ fontSize: 10.5, fontFamily: 'var(--font-sans)', color: 'var(--text-faint)' }}>
+                                                                {invoice.items?.[0]?.kind === 'consultation' ? 'Appointment share' : 'Lab referral'}
+                                                            </span>
+                                                        </span>
                                                     ),
                                                 },
                                                 {

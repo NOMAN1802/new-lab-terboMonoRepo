@@ -23,6 +23,7 @@ import { Appointment } from './appointment.model';
 import {
   allowedFrom,
   canApply,
+  canReschedule,
   resultOf,
   slotState,
   type TAppointmentAction,
@@ -39,8 +40,10 @@ const STATUSES: TAppointmentStatus[] = [
 ];
 
 const populateDoctor = 'name doctorCode specialty';
+// commissionAmount on a consultation invoice is the doctor's share of the fee.
+// The controller strips it, and the payout state, for anyone but an admin.
 const populateInvoice =
-  'invoiceNumber paymentStatus netPayable paidAmount dueAmount isCancelled';
+  'invoiceNumber paymentStatus netPayable paidAmount dueAmount isCancelled commissionAmount commissionStatus referrer';
 const DUPLICATE_KEY = 11000;
 
 const escapeRegExp = (value: string) =>
@@ -111,8 +114,12 @@ const createAppointment = async (payload: TBookInput, actorId: string) => {
     );
   }
 
-  const doctor = await Doctor.findById(schedule.doctor).select('name specialty');
+  const doctor = await Doctor.findById(schedule.doctor).select(
+    'name specialty phone doctorCode isActive isDeleted referrer appointmentShareType appointmentShareValue'
+  );
   if (!doctor) throw new AppError(httpStatus.NOT_FOUND, 'Doctor not found');
+  // The doctor's Referrers entry is who their share of the fee is owed to.
+  const payee = await DoctorServices.ensureReferrer(doctor, actorId);
 
   const seq = await nextSequence(`appointment:${dateInput}`);
 
@@ -158,6 +165,17 @@ const createAppointment = async (payload: TBookInput, actorId: string) => {
           },
           fee: schedule.fee,
           visitDate: slot.start,
+          payee: {
+            _id: payee._id as Types.ObjectId,
+            referrerCode: payee.referrerCode,
+            name: payee.name,
+            designation: payee.designation,
+            hospital: payee.hospital,
+          },
+          share: {
+            type: doctor.appointmentShareType ?? 'percent',
+            value: doctor.appointmentShareValue ?? 0,
+          },
         },
         actorId
       );
@@ -222,7 +240,10 @@ const createAppointment = async (payload: TBookInput, actorId: string) => {
  * Every approved schedule on a day with each slot marked free, taken or past.
  * Slots are derived from the schedule, so nothing is stored per free slot.
  */
-const getAvailability = async (query: { date?: string; doctor?: string }) => {
+const getAvailability = async (
+  query: { date?: string; doctor?: string },
+  actor?: TActor
+) => {
   if (!query.date || !/^\d{4}-\d{2}-\d{2}$/.test(query.date)) {
     throw new AppError(httpStatus.BAD_REQUEST, 'A date (YYYY-MM-DD) is required');
   }
@@ -231,7 +252,11 @@ const getAvailability = async (query: { date?: string; doctor?: string }) => {
     date: parseDhakaDate(query.date),
     status: 'approved',
   };
-  if (query.doctor && Types.ObjectId.isValid(query.doctor)) {
+  // A doctor only ever sees their own schedules, whatever the query asks for.
+  const ownDoctor = actor ? await DoctorServices.getDoctorIdForActor(actor) : null;
+  if (ownDoctor) {
+    filter.doctor = ownDoctor;
+  } else if (query.doctor && Types.ObjectId.isValid(query.doctor)) {
     filter.doctor = new Types.ObjectId(query.doctor);
   }
 
@@ -524,6 +549,148 @@ const transition = async (
   return updated;
 };
 
+/**
+ * Moves a booked patient to another slot of the same doctor. The invoice and
+ * the fee stay as billed; the serial follows the new slot. The unique index on
+ * (schedule, slotIndex) settles two people reaching for the same slot.
+ */
+const reschedule = async (
+  id: string,
+  target: { schedule: string; slotIndex: number },
+  actor: TActor
+) => {
+  const appointment = await loadAppointment(id, actor);
+
+  if (!canReschedule(appointment.status)) {
+    throw new AppError(
+      httpStatus.CONFLICT,
+      'Only a booked appointment can be moved. This one is already ' +
+        appointment.status.replace('_', ' ')
+    );
+  }
+  if (appointment.cancellation?.status === 'pending') {
+    throw new AppError(
+      httpStatus.CONFLICT,
+      'A cancellation request is waiting on this appointment. Answer it first.'
+    );
+  }
+
+  const schedule = await DoctorSchedule.findById(target.schedule);
+  if (!schedule) throw new AppError(httpStatus.NOT_FOUND, 'Schedule not found');
+  if (schedule.status !== 'approved') {
+    throw new AppError(
+      httpStatus.CONFLICT,
+      'This schedule is not open for booking'
+    );
+  }
+  const currentDoctor = (appointment.doctor as unknown as { _id: Types.ObjectId })._id;
+  if (!currentDoctor.equals(schedule.doctor)) {
+    throw new AppError(
+      httpStatus.BAD_REQUEST,
+      'An appointment can only be moved to another slot of the same doctor'
+    );
+  }
+
+  const dateInput = toDhakaDateInput(schedule.date);
+  const slot = generateSlots({
+    date: dateInput,
+    startTime: schedule.startTime,
+    endTime: schedule.endTime,
+    slotMinutes: schedule.slotMinutes,
+  })[target.slotIndex];
+
+  if (!slot) throw new AppError(httpStatus.BAD_REQUEST, 'That slot does not exist');
+  if (slot.end <= new Date()) {
+    throw new AppError(httpStatus.CONFLICT, 'That slot has already passed');
+  }
+  if (schedule.blockedSlots?.some((blocked) => blocked.slotIndex === target.slotIndex)) {
+    throw new AppError(
+      httpStatus.CONFLICT,
+      'That slot is not available. The doctor has blocked it.'
+    );
+  }
+  if (
+    String(appointment.schedule) === String(schedule._id) &&
+    appointment.slotIndex === target.slotIndex
+  ) {
+    throw new AppError(httpStatus.BAD_REQUEST, 'The patient is already in that slot');
+  }
+
+  const sameDay = await Appointment.findOne({
+    _id: { $ne: appointment._id },
+    schedule: schedule._id,
+    patient: appointment.patient,
+    holdsSlot: true,
+  }).select('serialNo startTime');
+  if (sameDay) {
+    throw new AppError(
+      httpStatus.CONFLICT,
+      `${appointment.patientInfo.name} is already booked in this schedule (serial ${sameDay.serialNo}, ${sameDay.startTime})`
+    );
+  }
+
+  const before = {
+    date: appointment.date,
+    startTime: appointment.startTime,
+    serialNo: appointment.serialNo,
+  };
+
+  let updated;
+  try {
+    updated = await Appointment.findOneAndUpdate(
+      {
+        _id: appointment._id,
+        status: 'booked',
+        schedule: appointment.schedule,
+        slotIndex: appointment.slotIndex,
+      },
+      {
+        $set: {
+          schedule: schedule._id,
+          slotIndex: slot.slotIndex,
+          serialNo: slot.serialNo,
+          date: schedule.date,
+          slotStart: slot.start,
+          slotEnd: slot.end,
+          startTime: slot.startTime,
+          endTime: slot.endTime,
+          rescheduledFrom: before,
+          rescheduledAt: new Date(),
+        },
+      },
+      { new: true }
+    )
+      .populate('doctor', populateDoctor)
+      .populate('invoice', populateInvoice);
+  } catch (error) {
+    if ((error as { code?: number }).code === DUPLICATE_KEY) {
+      throw new AppError(
+        httpStatus.CONFLICT,
+        'That slot was just taken. Please choose another.'
+      );
+    }
+    throw error;
+  }
+
+  if (!updated) {
+    throw new AppError(
+      httpStatus.CONFLICT,
+      'This appointment was just changed by someone else. Reload and try again.'
+    );
+  }
+
+  void recordActivity({
+    userId: actor._id,
+    action: 'appointment.rescheduled',
+    entity: 'Appointment',
+    entityId: updated._id,
+    entityLabel: updated.appointmentNumber,
+    summary: `${updated.patientInfo.name} moved from serial ${before.serialNo} at ${before.startTime} to serial ${slot.serialNo} at ${slot.startTime} on ${dateInput}`,
+  });
+
+  return updated;
+};
+
 /** The desk asks; an admin decides. Nothing changes on the appointment yet. */
 const requestCancel = async (id: string, reason: string, actor: TActor) => {
   const appointment = await loadAppointment(id, actor);
@@ -719,6 +886,7 @@ export const AppointmentServices = {
     return transition(id, 'cancel', actor, reason, undefined, refund);
   },
   requestCancel,
+  reschedule,
   approveCancel,
   rejectCancel,
   acknowledgeOutcomes,

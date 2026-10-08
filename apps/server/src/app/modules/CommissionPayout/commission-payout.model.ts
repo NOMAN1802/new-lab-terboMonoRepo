@@ -9,6 +9,7 @@ const CommissionPayoutSchema = new Schema<TCommissionPayout>(
     referrerCode: { type: String, required: true },
 
     invoices: [{ type: Schema.Types.ObjectId, ref: 'Invoice' }],
+    kind: { type: String, enum: ['lab', 'appointment'] },
     invoiceCount: { type: Number, required: true, min: 0 },
 
     periodFrom: { type: Date },

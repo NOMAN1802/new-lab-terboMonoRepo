@@ -8,6 +8,12 @@ import { AppointmentValidations } from './appointment.validation';
 const router = express.Router();
 
 const desk = auth(USER_ROLE.admin, USER_ROLE.receptionist);
+// The doctor works their own list: calls patients in, closes visits, asks to cancel.
+const deskOrDoctor = auth(
+  USER_ROLE.admin,
+  USER_ROLE.receptionist,
+  USER_ROLE.doctor
+);
 
 router.post(
   '/',
@@ -33,7 +39,11 @@ router.post(
 );
 
 // Must stay above '/:id' or "availability" is read as an id.
-router.get('/availability', desk, AppointmentControllers.getAvailability);
+router.get(
+  '/availability',
+  deskOrDoctor,
+  AppointmentControllers.getAvailability
+);
 
 router.get(
   '/',
@@ -47,7 +57,15 @@ router.get(
   AppointmentControllers.getAppointment
 );
 
-router.post('/:id/check-in', desk, AppointmentControllers.checkIn);
+router.post('/:id/check-in', deskOrDoctor, AppointmentControllers.checkIn);
+
+// Move a booked patient to another slot of the same doctor.
+router.post(
+  '/:id/reschedule',
+  deskOrDoctor,
+  validateRequest(AppointmentValidations.rescheduleAppointmentValidationSchema),
+  AppointmentControllers.reschedule
+);
 
 // Cancelling outright is for admins. The desk asks, and an admin answers.
 router.post(
@@ -59,7 +77,7 @@ router.post(
 
 router.post(
   '/:id/cancel-request',
-  desk,
+  deskOrDoctor,
   validateRequest(AppointmentValidations.cancelAppointmentValidationSchema),
   AppointmentControllers.requestCancel
 );
@@ -78,7 +96,7 @@ router.post(
   AppointmentControllers.rejectCancel
 );
 
-router.post('/:id/no-show', desk, AppointmentControllers.markNoShow);
+router.post('/:id/no-show', deskOrDoctor, AppointmentControllers.markNoShow);
 
 // The doctor closes the consultation; admin can too, to fix a missed click.
 router.post(

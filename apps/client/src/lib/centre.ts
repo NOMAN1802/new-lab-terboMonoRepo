@@ -5,7 +5,7 @@
 export const CENTRE = {
     name:
         import.meta.env.VITE_CENTRE_NAME ||
-        'New Lab Diagnostic & Consultation Centre',
+        'ByteSpate Diagnostic',
     address: import.meta.env.VITE_CENTRE_ADDRESS || '',
     phone: import.meta.env.VITE_CENTRE_PHONE || '',
     email: import.meta.env.VITE_CENTRE_EMAIL || '',

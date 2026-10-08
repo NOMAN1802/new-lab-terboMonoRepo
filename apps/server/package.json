@@ -3,7 +3,7 @@
   "version": "1.0.0",
   "private": true,
   "main": "./dist/server.js",
-  "description": "New Lab Diagnostic & Consultation Centre — billing & management API",
+  "description": "ByteSpate Diagnostic — billing & management API",
   "license": "ISC",
   "scripts": {
     "dev": "ts-node-dev --respawn --transpile-only ./src/server.ts",
@@ -23,6 +23,9 @@
     "verify:cancel": "pnpm run build && node scripts/verify-cancel-and-dashboard.js",
     "verify:slots": "pnpm run build && node scripts/verify-slots.js",
     "verify:refunds": "pnpm run build && node scripts/verify-refunds.js",
+    "verify:prescriptions": "pnpm run build && node scripts/verify-prescriptions.js",
+    "verify:doctor-referrers": "pnpm run build && node scripts/verify-doctor-referrers.js",
+    "backfill:doctor-referrers": "pnpm run build && node scripts/backfill-doctor-referrers.js",
     "verify:routes": "pnpm run build && node scripts/verify-routes.js",
     "clean": "rm -rf dist"
   },

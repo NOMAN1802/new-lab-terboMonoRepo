@@ -74,6 +74,19 @@ const AppointmentSchema = new Schema<TAppointment>(
     cancelReason: { type: String, trim: true },
     cancellation: { type: CancellationSchema },
     callback: { type: CallbackSchema },
+    rescheduledFrom: {
+      type: new Schema(
+        {
+          date: { type: Date, required: true },
+          startTime: { type: String, required: true },
+          serialNo: { type: Number, required: true },
+        },
+        { _id: false }
+      ),
+    },
+    rescheduledAt: { type: Date },
+    prescription: { type: Schema.Types.ObjectId, ref: 'Prescription' },
+    prescriptionNumber: { type: String },
     checkedInAt: { type: Date },
     completedAt: { type: Date },
     createdBy: { type: Schema.Types.ObjectId, ref: 'User' },

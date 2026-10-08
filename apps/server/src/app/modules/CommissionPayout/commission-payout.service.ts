@@ -8,11 +8,15 @@ import { recordActivity } from '../ActivityLog/activity-log.service';
 import { formatDocNumber, nextSequence } from '../Counter/counter.model';
 import { Invoice } from '../Invoice/invoice.model';
 import { Referrer } from '../Referrer/referrer.model';
-import { type TCommissionPayout } from './commission-payout.interface';
+import {
+  type TCommissionPayout,
+  type TPayoutKind,
+} from './commission-payout.interface';
 import { CommissionPayout } from './commission-payout.model';
 
 export type TCreatePayoutInput = {
   referrer: string;
+  kind?: TPayoutKind;
   invoiceIds?: string[];
   periodFrom?: string;
   periodTo?: string;
@@ -36,7 +40,18 @@ export type TCreatePayoutInput = {
  * move. Paying earlier is what creates the case where a doctor has been paid
  * for a test that was later called off.
  */
-const pendingCommissionFilter = (referrerId: string) => ({
+/**
+ * An appointment invoice carries one consultation line; everything else is lab
+ * work. No kind means both, as before the two were paid separately.
+ */
+const kindFilter = (kind?: TPayoutKind): Record<string, unknown> => {
+  if (kind === 'appointment') return { 'items.0.kind': 'consultation' };
+  if (kind === 'lab') return { 'items.0.kind': { $ne: 'consultation' } };
+  return {};
+};
+
+const pendingCommissionFilter = (referrerId: string, kind?: TPayoutKind) => ({
+  ...kindFilter(kind),
   referrer: new Types.ObjectId(referrerId),
   commissionStatus: 'pending' as const,
   isCancelled: { $ne: true },
@@ -45,7 +60,8 @@ const pendingCommissionFilter = (referrerId: string) => ({
 });
 
 /** Accrued but not yet payable — the patient still owes on these. */
-const awaitingSettlementFilter = (referrerId: string) => ({
+const awaitingSettlementFilter = (referrerId: string, kind?: TPayoutKind) => ({
+  ...kindFilter(kind),
   referrer: new Types.ObjectId(referrerId),
   commissionStatus: 'pending' as const,
   isCancelled: { $ne: true },
@@ -68,7 +84,8 @@ const createPayout = async (
     }
 
     const filter: Record<string, unknown> = pendingCommissionFilter(
-      payload.referrer
+      payload.referrer,
+      payload.kind
     );
 
     if (payload.invoiceIds?.length) {
@@ -86,7 +103,7 @@ const createPayout = async (
 
     if (invoices.length === 0) {
       const unsettled = await Invoice.countDocuments(
-        awaitingSettlementFilter(payload.referrer)
+        awaitingSettlementFilter(payload.referrer, payload.kind)
       ).session(session);
 
       throw new AppError(
@@ -119,6 +136,7 @@ const createPayout = async (
           referrerCode: referrer.referrerCode,
           invoices: invoices.map((invoice) => invoice._id),
           invoiceCount: invoices.length,
+          kind: payload.kind,
           periodFrom: payload.periodFrom
             ? new Date(payload.periodFrom)
             : undefined,
@@ -146,7 +164,7 @@ const createPayout = async (
       entity: 'CommissionPayout',
       entityId: payout._id,
       entityLabel: payout.payoutNumber,
-      summary: `Paid ${amount} commission to ${referrer.name} covering ${invoices.length} invoice(s)`,
+      summary: `Paid ${amount} ${payload.kind === 'appointment' ? 'appointment fee share' : 'commission'} to ${referrer.name} covering ${invoices.length} invoice(s)`,
       meta: {
         amount,
         referrer: referrer.name,
@@ -163,11 +181,21 @@ const createPayout = async (
   }
 };
 
-const getPayouts = async (query: Record<string, unknown>) => {
+const getPayouts = async (rawQuery: Record<string, unknown>) => {
+  const { kind, ...query } = rawQuery;
   const range = resolveDateRange(query);
+
+  // Payouts from before the split have no kind; they were all lab commission.
+  const kindMatch =
+    kind === 'appointment'
+      ? { kind: 'appointment' }
+      : kind === 'lab'
+        ? { kind: { $ne: 'appointment' } }
+        : {};
 
   const baseQuery = CommissionPayout.find({
     ...dateRangeFilter('paidOn', range),
+    ...kindMatch,
   }).populate('paidBy', 'name email');
 
   const payoutQuery = new QueryBuilder(baseQuery, query)
@@ -202,15 +230,15 @@ const getPayout = async (id: string): Promise<TCommissionPayout> => {
 };
 
 /** What is still owed to a referrer, and which invoices make it up. */
-const getPendingCommission = async (referrerId: string) => {
+const getPendingCommission = async (referrerId: string, kind?: TPayoutKind) => {
   const referrer = await Referrer.findById(referrerId);
   if (!referrer) throw new AppError(httpStatus.NOT_FOUND, 'Referrer not found');
 
   const [invoices, awaiting] = await Promise.all([
-    Invoice.find(pendingCommissionFilter(referrerId))
-      .select('invoiceNumber visitDate netPayable commissionType commissionValue commissionAmount')
+    Invoice.find(pendingCommissionFilter(referrerId, kind))
+      .select('invoiceNumber visitDate netPayable commissionType commissionValue commissionAmount items.kind')
       .sort({ visitDate: 1 }),
-    Invoice.find(awaitingSettlementFilter(referrerId)).select(
+    Invoice.find(awaitingSettlementFilter(referrerId, kind)).select(
       'invoiceNumber visitDate netPayable dueAmount commissionAmount'
     ),
   ]);

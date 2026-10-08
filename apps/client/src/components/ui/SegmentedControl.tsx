@@ -10,7 +10,7 @@ type SegmentedControlProps = {
     style?: CSSProperties;
 };
 
-/** The slate-100 pill group with a white active chip — New Lab's range and status filters. */
+/** The slate-100 pill group with a white active chip — ByteSpate's range and status filters. */
 const SegmentedControl = ({ options = [], value, onChange, size = 'md', style }: SegmentedControlProps) => {
     const items = options.map((o) => (typeof o === 'string' ? { label: o, value: o } : o));
 

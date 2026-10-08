@@ -200,6 +200,22 @@ const getReferralCommissionReport = async (range: TDateRange) => {
             $cond: [{ $eq: ['$paymentStatus', 'paid'] }, '$commissionAmount', 0],
           },
         },
+        // The part of the accrued figure that is doctors' share of appointment
+        // fees rather than commission on lab work they referred.
+        appointmentShareAccrued: {
+          $sum: {
+            $cond: [
+              {
+                $and: [
+                  { $eq: ['$paymentStatus', 'paid'] },
+                  { $eq: [{ $arrayElemAt: ['$items.kind', 0] }, 'consultation'] },
+                ],
+              },
+              '$commissionAmount',
+              0,
+            ],
+          },
+        },
         // Accrued on paper but not payable yet — the patient still owes.
         commissionAwaiting: {
           $sum: {

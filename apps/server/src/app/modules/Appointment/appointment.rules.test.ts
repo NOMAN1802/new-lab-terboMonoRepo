@@ -1,6 +1,7 @@
 import {
   allowedFrom,
   canApply,
+  canReschedule,
   holdsSlot,
   resultOf,
   slotState,
@@ -88,5 +89,15 @@ describe('slotState', () => {
     expect(slotState({ end: new Date('2026-10-20T04:15:00Z') }, false, now)).toBe(
       'free'
     );
+  });
+});
+
+describe('canReschedule', () => {
+  it('moves only a patient who has not arrived yet', () => {
+    expect(canReschedule('booked')).toBe(true);
+    expect(canReschedule('checked_in')).toBe(false);
+    expect(canReschedule('completed')).toBe(false);
+    expect(canReschedule('cancelled')).toBe(false);
+    expect(canReschedule('no_show')).toBe(false);
   });
 });

@@ -1,4 +1,8 @@
 import { z } from 'zod';
+import {
+  appointmentShareFields,
+  shareWithinBounds,
+} from '../Doctor/doctor.validation';
 
 const roleEnum = z.enum(['admin', 'receptionist'], {
   required_error: 'Role is required',
@@ -31,9 +35,11 @@ const createUserValidationSchema = z.object({
         .number({ invalid_type_error: 'Fee must be a number' })
         .min(0, 'Fee cannot be negative')
         .optional(),
+      ...appointmentShareFields,
     })
     .superRefine((value, ctx) => {
       if (value.role !== 'doctor') return;
+      shareWithinBounds(value, ctx);
       if (!value.specialty) {
         ctx.addIssue({
           code: z.ZodIssueCode.custom,

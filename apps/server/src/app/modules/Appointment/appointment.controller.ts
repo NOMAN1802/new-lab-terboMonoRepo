@@ -9,6 +9,28 @@ const actorOf = (req: Request) => ({
   role: req.user.role as string,
 });
 
+// What the doctor is owed from a fee is the centre's business, not the desk's
+// or the doctor's: only an admin sees it.
+const SHARE_FIELDS = ['commissionAmount', 'commissionStatus', 'referrer'];
+
+const toPlain = (value: unknown): unknown =>
+  value && typeof (value as { toObject?: () => unknown }).toObject === 'function'
+    ? (value as { toObject: () => unknown }).toObject()
+    : value;
+
+const forRole = <T>(req: Request, data: T): T => {
+  if (req.user.role === 'admin') return data;
+  const strip = (item: unknown) => {
+    const plain = toPlain(item) as Record<string, unknown> | null;
+    const invoice = plain && (plain.invoice as Record<string, unknown> | undefined);
+    if (invoice && typeof invoice === 'object') {
+      for (const field of SHARE_FIELDS) delete invoice[field];
+    }
+    return plain;
+  };
+  return (Array.isArray(data) ? data.map(strip) : strip(data)) as T;
+};
+
 const createAppointment = catchAsync(async (req, res) => {
   const result = await AppointmentServices.createAppointment(
     req.body,
@@ -18,20 +40,23 @@ const createAppointment = catchAsync(async (req, res) => {
     statusCode: httpStatus.CREATED,
     success: true,
     message: 'Appointment booked',
-    data: result,
+    data: forRole(req, result),
   });
 });
 
 const getAvailability = catchAsync(async (req, res) => {
-  const result = await AppointmentServices.getAvailability({
-    date: req.query.date as string | undefined,
-    doctor: req.query.doctor as string | undefined,
-  });
+  const result = await AppointmentServices.getAvailability(
+    {
+      date: req.query.date as string | undefined,
+      doctor: req.query.doctor as string | undefined,
+    },
+    actorOf(req)
+  );
   sendResponse(res, {
     statusCode: httpStatus.OK,
     success: true,
     message: 'Availability retrieved successfully',
-    data: result,
+    data: forRole(req, result),
   });
 });
 
@@ -45,7 +70,7 @@ const getAppointments = catchAsync(async (req, res) => {
     success: true,
     message: 'Appointments retrieved successfully',
     meta,
-    data: result,
+    data: forRole(req, result),
   });
 });
 
@@ -58,7 +83,7 @@ const getAppointment = catchAsync(async (req, res) => {
     statusCode: httpStatus.OK,
     success: true,
     message: 'Appointment retrieved successfully',
-    data: result,
+    data: forRole(req, result),
   });
 });
 
@@ -68,7 +93,7 @@ const checkIn = catchAsync(async (req, res) => {
     statusCode: httpStatus.OK,
     success: true,
     message: 'Patient checked in',
-    data: result,
+    data: forRole(req, result),
   });
 });
 
@@ -83,7 +108,7 @@ const cancel = catchAsync(async (req, res) => {
     statusCode: httpStatus.OK,
     success: true,
     message: 'Appointment cancelled',
-    data: result,
+    data: forRole(req, result),
   });
 });
 
@@ -97,7 +122,21 @@ const requestCancel = catchAsync(async (req, res) => {
     statusCode: httpStatus.OK,
     success: true,
     message: 'Cancellation requested. An admin will review it.',
-    data: result,
+    data: forRole(req, result),
+  });
+});
+
+const reschedule = catchAsync(async (req, res) => {
+  const result = await AppointmentServices.reschedule(
+    req.params.id,
+    req.body,
+    actorOf(req)
+  );
+  sendResponse(res, {
+    statusCode: httpStatus.OK,
+    success: true,
+    message: 'Appointment moved',
+    data: forRole(req, result),
   });
 });
 
@@ -112,7 +151,7 @@ const approveCancel = catchAsync(async (req, res) => {
     statusCode: httpStatus.OK,
     success: true,
     message: 'Cancellation approved',
-    data: result,
+    data: forRole(req, result),
   });
 });
 
@@ -126,7 +165,7 @@ const rejectCancel = catchAsync(async (req, res) => {
     statusCode: httpStatus.OK,
     success: true,
     message: 'Cancellation request refused',
-    data: result,
+    data: forRole(req, result),
   });
 });
 
@@ -139,7 +178,7 @@ const acknowledgeOutcomes = catchAsync(async (req, res) => {
     statusCode: httpStatus.OK,
     success: true,
     message: 'Marked as read',
-    data: result,
+    data: forRole(req, result),
   });
 });
 
@@ -152,7 +191,7 @@ const markInformed = catchAsync(async (req, res) => {
     statusCode: httpStatus.OK,
     success: true,
     message: 'Marked as informed',
-    data: result,
+    data: forRole(req, result),
   });
 });
 
@@ -165,7 +204,7 @@ const markNoShow = catchAsync(async (req, res) => {
     statusCode: httpStatus.OK,
     success: true,
     message: 'Marked as no-show',
-    data: result,
+    data: forRole(req, result),
   });
 });
 
@@ -178,7 +217,7 @@ const complete = catchAsync(async (req, res) => {
     statusCode: httpStatus.OK,
     success: true,
     message: 'Consultation completed',
-    data: result,
+    data: forRole(req, result),
   });
 });
 
@@ -190,6 +229,7 @@ export const AppointmentControllers = {
   checkIn,
   cancel,
   requestCancel,
+  reschedule,
   approveCancel,
   rejectCancel,
   acknowledgeOutcomes,

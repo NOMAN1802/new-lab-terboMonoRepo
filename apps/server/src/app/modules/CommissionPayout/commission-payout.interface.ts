@@ -5,6 +5,8 @@ import { type Types } from 'mongoose';
  * flips the covered invoices' commissionStatus to 'paid', which is what makes
  * the accrued / paid / pending split on the commission report meaningful.
  */
+export type TPayoutKind = 'lab' | 'appointment';
+
 export type TCommissionPayout = {
   _id?: Types.ObjectId;
   payoutNumber: string;
@@ -13,6 +15,11 @@ export type TCommissionPayout = {
   referrerCode: string;
   invoices: Types.ObjectId[];
   invoiceCount: number;
+  /**
+   * What the payout settles: commission on lab tests a doctor referred, or a
+   * doctor's share of appointment fees. Older payouts have none and were lab.
+   */
+  kind?: TPayoutKind;
   periodFrom?: Date;
   periodTo?: Date;
   amount: number;

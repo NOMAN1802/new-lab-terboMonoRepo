@@ -23,6 +23,7 @@ const COLUMN_DEFS: { key: TranslationKey; accessor: (row: ReferralCommissionRow)
     { key: 'crep.discountGiven', accessor: (r) => r.discountGiven },
     { key: 'rep.netBilled', accessor: (r) => r.netBilled },
     { key: 'rep.commissionAccrued', accessor: (r) => r.commissionAccrued },
+    { key: 'crep.appointmentShare', accessor: (r) => r.appointmentShareAccrued ?? 0 },
     { key: 'crep.commissionAwaiting', accessor: (r) => r.commissionAwaiting },
     { key: 'crep.commissionPaid', accessor: (r) => r.commissionPaid },
     { key: 'crep.commissionPending', accessor: (r) => r.commissionPending },

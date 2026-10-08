@@ -4,6 +4,8 @@ import type { ApiResponse, ListQuery, Paginated } from './types';
 import type { Referrer } from './referrersApi';
 import type { CommissionType } from './invoicesApi';
 
+export type PayoutKind = 'lab' | 'appointment';
+
 export type CommissionPayout = {
     _id: string;
     payoutNumber: string;
@@ -12,6 +14,8 @@ export type CommissionPayout = {
     referrerCode: string;
     invoices: string[];
     invoiceCount: number;
+    /** Lab commission or appointment fee share. Older payouts have none (lab). */
+    kind?: PayoutKind;
     periodFrom?: string;
     periodTo?: string;
     amount: number;
@@ -31,6 +35,8 @@ export type PendingCommission = {
         commissionType: CommissionType;
         commissionValue: number;
         commissionAmount: number;
+        /** A consultation line means the doctor's share of an appointment fee. */
+        items?: { kind?: 'test' | 'consultation' }[];
     }[];
     totalPending: number;
     /**
@@ -42,6 +48,7 @@ export type PendingCommission = {
 
 export type CreatePayoutInput = {
     referrer: string;
+    kind?: PayoutKind;
     invoiceIds?: string[];
     periodFrom?: string;
     periodTo?: string;
@@ -53,7 +60,7 @@ export const commissionPayoutsApi = baseApi.injectEndpoints({
     endpoints: (builder) => ({
         getCommissionPayouts: builder.query<
             Paginated<CommissionPayout>,
-            ListQuery | void
+            (ListQuery & { kind?: PayoutKind }) | void
         >({
             query: (params) => ({
                 url: '/commission-payouts',
@@ -70,12 +77,13 @@ export const commissionPayoutsApi = baseApi.injectEndpoints({
             providesTags: [{ type: 'CommissionPayouts', id: 'LIST' }],
         }),
 
-        getPendingCommission: builder.query<PendingCommission, string>({
-            query: (referrerId) => ({
+        getPendingCommission: builder.query<PendingCommission, { referrerId: string; kind?: PayoutKind }>({
+            query: ({ referrerId, kind }) => ({
                 url: `/commission-payouts/pending/${referrerId}`,
+                params: cleanParams({ kind }),
             }),
             transformResponse: (r: ApiResponse<PendingCommission>) => r.data,
-            providesTags: (_r, _e, referrerId) => [
+            providesTags: (_r, _e, { referrerId }) => [
                 { type: 'CommissionPayouts', id: `PENDING-${referrerId}` },
             ],
         }),

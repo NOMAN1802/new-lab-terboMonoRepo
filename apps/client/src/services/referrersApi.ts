@@ -23,6 +23,9 @@ export type Referrer = {
     defaultCommissionType?: CommissionType;
     defaultCommissionValue?: number;
     isActive: boolean;
+    /** Set when this entry is one of the centre's own doctors; it follows the doctor. */
+    doctor?: string;
+    isDoctor?: boolean;
     createdAt: string;
 };
 

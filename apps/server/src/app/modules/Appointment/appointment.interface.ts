@@ -85,6 +85,16 @@ export type TAppointment = {
   cancelReason?: string;
   cancellation?: TCancellation;
   callback?: TCallback;
+  /** Where it was before the last move, so the desk can tell the patient. */
+  rescheduledFrom?: {
+    date: Date;
+    startTime: string;
+    serialNo: number;
+  };
+  rescheduledAt?: Date;
+  /** The prescription the doctor wrote at this visit, if any. */
+  prescription?: Types.ObjectId;
+  prescriptionNumber?: string;
   checkedInAt?: Date;
   completedAt?: Date;
   createdBy?: Types.ObjectId;

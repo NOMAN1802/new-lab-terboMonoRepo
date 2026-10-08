@@ -40,7 +40,7 @@ server.listen(0, async () => {
     check('GET / returns 200', root.status === 200, `got ${root.status}`);
     check(
       'root message is rebranded (no "Kabir")',
-      root.body.includes('New Lab') && !/kabir/i.test(root.body),
+      root.body.includes('ByteSpate') && !/kabir/i.test(root.body),
       root.body
     );
 

@@ -25,6 +25,7 @@ export const serializeReferrer = (
   role: TUserRole
 ): TPlainReferrer => {
   const plain = toPlain(referrer);
+  plain.isDoctor = Boolean(plain.doctor);
   if (role === 'admin') return plain;
 
   for (const field of FINANCIAL_FIELDS) {

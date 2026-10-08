@@ -1,5 +1,4 @@
 import { useState } from 'react';
-import { useNavigate } from 'react-router-dom';
 import { toast } from 'sonner';
 import ConfirmModal from '@/components/common/ConfirmModal';
 import type { ConfirmRequest } from '@/components/common/ConfirmModal';
@@ -11,10 +10,12 @@ import Checkbox from '@/components/ui/Checkbox';
 import DataTable from '@/components/ui/DataTable';
 import Icon from '@/components/ui/Icon';
 import Panel from '@/components/ui/Panel';
+import Select from '@/components/ui/Select';
 import TextField from '@/components/ui/TextField';
 import { useRole } from '@/hooks/useRole';
 import { apiErrorMessage, money } from '@/lib/format';
 import {
+    useApplyShareToPastMutation,
     useDeleteDoctorMutation,
     useGetDoctorsQuery,
     useUpdateDoctorMutation,
@@ -27,6 +28,8 @@ type Form = {
     degrees: string;
     phone: string;
     consultationFee: string;
+    shareType: 'percent' | 'fixed';
+    shareValue: string;
     email: string;
     password: string;
     isActive: boolean;
@@ -38,10 +41,19 @@ const EMPTY: Form = {
     degrees: '',
     phone: '',
     consultationFee: '',
+    shareType: 'percent',
+    shareValue: '0',
     email: '',
     password: '',
     isActive: true,
 };
+
+const shareLabel = (doctor: Doctor) =>
+    !doctor.appointmentShareValue
+        ? '—'
+        : doctor.appointmentShareType === 'fixed'
+          ? money(doctor.appointmentShareValue)
+          : `${doctor.appointmentShareValue}%`;
 
 const rowAction: React.CSSProperties = {
     display: 'inline-flex',
@@ -58,7 +70,6 @@ const rowAction: React.CSSProperties = {
 
 const DoctorsPage = () => {
     const { isAdmin } = useRole();
-    const navigate = useNavigate();
     const [confirmRequest, setConfirmRequest] = useState<ConfirmRequest | null>(null);
     const [search, setSearch] = useState('');
     const [isFormOpen, setFormOpen] = useState(false);
@@ -68,6 +79,28 @@ const DoctorsPage = () => {
     const { data, isLoading, isError, refetch } = useGetDoctorsQuery({ search: search.trim() || undefined });
     const [updateDoctor, { isLoading: isUpdating }] = useUpdateDoctorMutation();
     const [deleteDoctor] = useDeleteDoctorMutation();
+    const [applyShare, { isLoading: isApplying }] = useApplyShareToPastMutation();
+
+    const askApplyShare = (doctor: Doctor) =>
+        setConfirmRequest({
+            title: `Apply ${doctor.name}'s share to past appointments?`,
+            description:
+                `Their saved share (${shareLabel(doctor) === '—' ? 'none' : shareLabel(doctor)}) is put on every past appointment ` +
+                'that is not cancelled and not yet paid out. Appointments already paid out stay as they are. Save any change to the share first.',
+            confirmLabel: 'Apply share',
+            onConfirm: async () => {
+                try {
+                    const result = await applyShare(doctor._id).unwrap();
+                    toast.success(
+                        result.updated > 0
+                            ? `Updated ${result.updated} appointment(s). ${money(result.total)} is now owed to ${doctor.name} across ${result.appointments} unpaid appointment(s).`
+                            : `Nothing to change. ${result.appointments} unpaid appointment(s) already carry this share.`
+                    );
+                } catch (error) {
+                    toast.error(apiErrorMessage(error, 'Could not apply the share'));
+                }
+            },
+        });
 
     const startEdit = (doctor: Doctor) => {
         setEditing(doctor);
@@ -77,6 +110,8 @@ const DoctorsPage = () => {
             degrees: doctor.degrees ?? '',
             phone: doctor.phone,
             consultationFee: String(doctor.consultationFee),
+            shareType: doctor.appointmentShareType ?? 'percent',
+            shareValue: String(doctor.appointmentShareValue ?? 0),
             email: doctor.user?.email ?? '',
             password: '',
             isActive: doctor.isActive,
@@ -105,7 +140,19 @@ const DoctorsPage = () => {
             return;
         }
 
+        const share = Number(form.shareValue);
+        if (form.shareValue === '' || Number.isNaN(share) || share < 0) {
+            toast.error('Enter the appointment share, or 0 for none');
+            return;
+        }
+        if (form.shareType === 'percent' && share > 100) {
+            toast.error('A percent share cannot exceed 100');
+            return;
+        }
+
         const profile = {
+            appointmentShareType: form.shareType,
+            appointmentShareValue: share,
             name: form.name.trim(),
             specialty: form.specialty.trim(),
             degrees: form.degrees.trim() || undefined,
@@ -152,14 +199,10 @@ const DoctorsPage = () => {
                     <h2 style={{ fontSize: 20, fontWeight: 700, color: 'var(--text-heading)' }}>Doctors</h2>
                     <p style={{ marginTop: 4, fontSize: 13, color: 'var(--text-muted)' }}>
                         Consulting doctors who can be given schedules and booked by patients. A doctor is a user: add one from
-                        the Users page, and edit their clinical details here.
+                        the Users page, and edit their clinical details and appointment share here. Each doctor is also on the
+                        Referrers list, where their lab discount and commission are set.
                     </p>
                 </div>
-                {isAdmin && (
-                    <Button icon="plus" onClick={() => navigate('/users?add=doctor')}>
-                        Add a doctor
-                    </Button>
-                )}
             </div>
 
             <div style={{ maxWidth: 420 }}>
@@ -211,6 +254,59 @@ const DoctorsPage = () => {
                                 onChange={(e) => setForm({ ...form, consultationFee: e.target.value })}
                                 hint="Default for new schedules. Each schedule keeps the fee it was created with."
                             />
+                        </div>
+
+                        <div
+                            style={{
+                                display: 'grid',
+                                gridTemplateColumns: 'repeat(auto-fit, minmax(min(240px, 100%),1fr))',
+                                gap: 18,
+                                background: 'var(--warning-bg)',
+                                borderRadius: 'var(--radius-md)',
+                                padding: 20,
+                            }}
+                        >
+                            <Select
+                                label="Doctor's share of each appointment"
+                                value={form.shareType}
+                                options={[
+                                    { label: 'Percent of the fee', value: 'percent' },
+                                    { label: 'Fixed taka per appointment', value: 'fixed' },
+                                ]}
+                                onChange={(e) => setForm({ ...form, shareType: e.target.value as Form['shareType'] })}
+                            />
+                            <TextField
+                                label={form.shareType === 'fixed' ? 'Share (৳)' : 'Share (%)'}
+                                type="number"
+                                min={0}
+                                max={form.shareType === 'percent' ? 100 : undefined}
+                                step="0.01"
+                                value={form.shareValue}
+                                onChange={(e) => setForm({ ...form, shareValue: e.target.value })}
+                                hint={(() => {
+                                    const fee = Number(form.consultationFee) || 0;
+                                    const value = Number(form.shareValue) || 0;
+                                    const earns = form.shareType === 'fixed' ? Math.min(value, fee) : (fee * Math.min(value, 100)) / 100;
+                                    return `On a ${money(fee)} fee the doctor earns ${money(earns)}. Paid out on Doctor's Commission once the patient has paid. New bookings only.`;
+                                })()}
+                            />
+                        </div>
+                        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12, flexWrap: 'wrap' }}>
+                            <p style={{ fontSize: 12, color: 'var(--text-faint)' }}>
+                                Discount and referral commission for lab tests this doctor refers are set on the Referrers page.
+                            </p>
+                            {editing && (
+                                <Button
+                                    type="button"
+                                    size="sm"
+                                    variant="secondary"
+                                    icon="rotate-ccw"
+                                    loading={isApplying}
+                                    onClick={() => askApplyShare(editing)}
+                                >
+                                    Apply saved share to unpaid past appointments
+                                </Button>
+                            )}
                         </div>
 
                         <div
@@ -312,6 +408,18 @@ const DoctorsPage = () => {
                                     <span style={{ fontWeight: 600, color: 'var(--text-heading)' }}>{money(doctor.consultationFee)}</span>
                                 ),
                             },
+                            ...(isAdmin
+                                ? [
+                                      {
+                                          key: 'share',
+                                          header: 'Doctor share',
+                                          align: 'right' as const,
+                                          render: (doctor: Doctor) => (
+                                              <span style={{ fontVariantNumeric: 'tabular-nums' }}>{shareLabel(doctor)}</span>
+                                          ),
+                                      },
+                                  ]
+                                : []),
                             {
                                 key: 'status',
                                 header: 'Status',

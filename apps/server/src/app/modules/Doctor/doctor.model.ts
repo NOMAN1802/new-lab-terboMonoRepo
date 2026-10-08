@@ -21,6 +21,14 @@ const DoctorSchema = new Schema<TDoctor>(
       required: true,
       unique: true,
     },
+    referrer: { type: Schema.Types.ObjectId, ref: 'Referrer' },
+    appointmentShareType: {
+      type: String,
+      enum: ['percent', 'fixed'],
+      default: 'percent',
+    },
+    // A percent when the type is percent, taka when fixed.
+    appointmentShareValue: { type: Number, min: 0, default: 0 },
     isActive: { type: Boolean, default: true },
     isDeleted: { type: Boolean, default: false },
     createdBy: { type: Schema.Types.ObjectId, ref: 'User' },
