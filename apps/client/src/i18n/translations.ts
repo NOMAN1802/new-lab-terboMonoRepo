@@ -25,13 +25,17 @@ export const translations = {
     'nav.allAppointments': { en: 'All appointments', bn: 'সব অ্যাপয়েন্টমেন্ট' },
     'nav.bookAppointment': { en: 'Book appointment', bn: 'অ্যাপয়েন্টমেন্ট বুক করুন' },
     'nav.schedules': { en: 'Doctor schedules', bn: 'ডাক্তারের সময়সূচি' },
-    'nav.commission': { en: "Doctor's Commission", bn: 'ডাক্তারের কমিশন' },
+    'nav.commission': { en: 'Doctor Payment', bn: 'ডাক্তারের পেমেন্ট' },
+    'nav.doctorCommission': { en: 'Doctor commission', bn: 'ডাক্তারের কমিশন' },
+    'nav.appointmentFeePayment': { en: "Appointment fee payment", bn: 'অ্যাপয়েন্টমেন্ট ফি পেমেন্ট' },
     'nav.reports': { en: 'Reports', bn: 'রিপোর্ট' },
     'nav.patientReport': { en: 'Patient report', bn: 'রোগী রিপোর্ট' },
     'nav.financialSummary': { en: 'Financial summary', bn: 'আর্থিক সারসংক্ষেপ' },
     'nav.referralCommission': { en: 'Referral & commission', bn: 'রেফারেল ও কমিশন' },
     'nav.outstandingPayments': { en: 'Outstanding payments', bn: 'বকেয়া পেমেন্ট' },
     'nav.users': { en: 'Users', bn: 'ব্যবহারকারী' },
+    'nav.allUsers': { en: 'All users', bn: 'সব ব্যবহারকারী' },
+    'nav.addUser': { en: 'Add user', bn: 'ব্যবহারকারী যোগ করুন' },
     'nav.activity': { en: 'Activity', bn: 'কার্যক্রম' },
     'nav.settings': { en: 'Settings', bn: 'সেটিংস' },
 
@@ -643,6 +647,7 @@ export const translations = {
     'comm.readyToPay': { en: 'settled invoice(s), ready to pay', bn: 'পরিশোধিত ইনভয়েস, দেওয়ার জন্য প্রস্তুত' },
 
     'crep.awaiting': { en: 'Awaiting', bn: 'অপেক্ষমাণ' },
+    'crep.appointmentShare': { en: 'Of which appointment share', bn: 'এর মধ্যে অ্যাপয়েন্টমেন্ট অংশ' },
     'crep.commissionAwaiting': { en: 'Commission awaiting settlement', bn: 'পরিশোধের অপেক্ষায় কমিশন' },
     'crep.awaitingNote': { en: 'Accrued on unpaid invoices — payable once the patient settles.', bn: 'অপরিশোধিত ইনভয়েসে জমা — রোগী পরিশোধ করলে দেওয়া হবে।' },
 

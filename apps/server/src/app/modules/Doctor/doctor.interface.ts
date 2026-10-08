@@ -1,4 +1,5 @@
 import { type Types } from 'mongoose';
+import { type TCommissionType } from '../Invoice/invoice.interface';
 
 /**
  * A consulting doctor who can be given a schedule and booked by patients.
@@ -16,6 +17,15 @@ export type TDoctor = {
   phone: string;
   /** Default fee for a consultation, in taka. Snapshotted onto each schedule. */
   consultationFee: number;
+  /**
+   * The doctor's own entry on the Referrers list, made with the doctor. It is
+   * how they are picked as the referrer on a lab booking and how their
+   * earnings are paid out.
+   */
+  referrer?: Types.ObjectId;
+  /** What the doctor earns from each appointment fee: a percent of it, or flat taka. */
+  appointmentShareType?: TCommissionType;
+  appointmentShareValue?: number;
   user: Types.ObjectId;
   isActive?: boolean;
   isDeleted?: boolean;

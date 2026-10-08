@@ -65,6 +65,7 @@ export const baseApi = createApi({
         'Doctors',
         'Schedules',
         'Appointments',
+        'Prescriptions',
         'Invoices',
         'Payments',
         'CommissionPayouts',

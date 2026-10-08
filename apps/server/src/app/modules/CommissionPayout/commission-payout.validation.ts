@@ -10,6 +10,8 @@ const createCommissionPayoutValidationSchema = z.object({
      * currently pending for the referrer within the given period.
      */
     invoiceIds: z.array(objectId).optional(),
+    // Lab commission and appointment shares are paid out separately.
+    kind: z.enum(['lab', 'appointment']).optional(),
     periodFrom: z.string().datetime().optional(),
     periodTo: z.string().datetime().optional(),
     paidOn: z.string().datetime().optional(),

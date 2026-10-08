@@ -2,7 +2,7 @@
 @import "tailwindcss";
 
 /* ------------------------------------------------------------------
-   New Lab design system tokens (claude.ai/design project 79d4ec5b).
+   ByteSpate design system tokens (claude.ai/design project 79d4ec5b).
    Raw ramps and semantic aliases live on :root so both the inline-style
    primitives in components/ui and Tailwind utilities read the same values.
    ------------------------------------------------------------------ */

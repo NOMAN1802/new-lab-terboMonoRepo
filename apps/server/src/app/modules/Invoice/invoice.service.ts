@@ -122,6 +122,19 @@ export type TCreateConsultationInvoiceInput = {
   doctor: { _id: Types.ObjectId; name: string; specialty: string };
   fee: number;
   visitDate: Date;
+  /**
+   * The doctor's own Referrers entry and their share of the fee. The share is
+   * recorded as the invoice's commission, so it is paid out with the rest of
+   * the doctor's commission, and only once the patient has paid.
+   */
+  payee?: {
+    _id: Types.ObjectId;
+    referrerCode: string;
+    name: string;
+    designation?: string;
+    hospital?: string;
+  };
+  share?: { type: TCommissionType; value: number };
 };
 
 /**
@@ -154,9 +167,13 @@ const createConsultationInvoice = async (
     },
   ];
 
-  // No referrer, no discount, no commission: the doctor is the one being seen,
-  // not someone who sent the patient.
-  const totals = computeTotals(items, 0, 'percent', 0, 0);
+  // No discount on a consultation. The doctor's share of the fee rides as the
+  // commission, frozen here so a later change to the share only affects new
+  // bookings. A flat share can never be more than the fee itself.
+  const shareType: TCommissionType = input.payee && input.share ? input.share.type : 'percent';
+  const rawShare = input.payee && input.share ? input.share.value : 0;
+  const shareValue = shareType === 'fixed' ? Math.min(rawShare, input.fee) : Math.min(rawShare, 100);
+  const totals = computeTotals(items, 0, shareType, shareValue, 0);
 
   const invoice = await Invoice.create({
     invoiceNumber: await buildInvoiceNumber(input.visitDate),
@@ -171,9 +188,20 @@ const createConsultationInvoice = async (
       address: patient.address,
     },
     items,
+    ...(input.payee
+      ? {
+          referrer: input.payee._id,
+          referrerInfo: {
+            referrerCode: input.payee.referrerCode,
+            name: input.payee.name,
+            designation: input.payee.designation,
+            hospital: input.payee.hospital,
+          },
+        }
+      : {}),
     discountPercent: 0,
-    commissionType: 'percent',
-    commissionValue: 0,
+    commissionType: shareType,
+    commissionValue: shareValue,
     ...totals,
     paidAmount: 0,
     commissionStatus: 'pending',

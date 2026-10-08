@@ -54,6 +54,16 @@ const updateDoctor = catchAsync(async (req, res) => {
   });
 });
 
+const applyShareToPast = catchAsync(async (req, res) => {
+  const result = await DoctorServices.applyShareToPast(req.params.id, req.user._id);
+  sendResponse(res, {
+    statusCode: httpStatus.OK,
+    success: true,
+    message: 'Share applied to unpaid past appointments',
+    data: result,
+  });
+});
+
 const deleteDoctor = catchAsync(async (req, res) => {
   await DoctorServices.deleteDoctor(req.params.id, req.user._id);
   sendResponse(res, {
@@ -69,5 +79,6 @@ export const DoctorControllers = {
   getMyDoctor,
   getDoctor,
   updateDoctor,
+  applyShareToPast,
   deleteDoctor,
 };

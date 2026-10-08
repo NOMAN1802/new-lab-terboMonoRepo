@@ -17,6 +17,13 @@ const RESULT: Record<TAppointmentAction, TAppointmentStatus> = {
   complete: 'completed',
 };
 
+/**
+ * A patient can be moved to another slot only before they have arrived. Once
+ * checked in they are being seen, so the visit is finished or cancelled instead.
+ */
+export const canReschedule = (status: TAppointmentStatus): boolean =>
+  status === 'booked';
+
 export const allowedFrom = (action: TAppointmentAction): TAppointmentStatus[] =>
   ALLOWED_FROM[action];
 

@@ -33,6 +33,7 @@ const DuesReportPage = lazy(() => import('@/pages/reports/DuesReportPage'));
 const ProfilePage = lazy(() => import('@/pages/profile/ProfilePage'));
 const SettingsPage = lazy(() => import('@/pages/settings/SettingsPage'));
 const UsersPage = lazy(() => import('@/pages/users/UsersPage'));
+const AddUserPage = lazy(() => import('@/pages/users/AddUserPage'));
 const ActivityPage = lazy(() => import('@/pages/activity/ActivityPage'));
 const PublicReportPage = lazy(() => import('@/pages/public/PublicReportPage'));
 const DoctorsPage = lazy(() => import('@/pages/doctors/DoctorsPage'));
@@ -41,6 +42,8 @@ const DoctorDashboardPage = lazy(() => import('@/pages/dashboard/DoctorDashboard
 const BookAppointmentPage = lazy(() => import('@/pages/appointments/BookAppointmentPage'));
 const AppointmentsPage = lazy(() => import('@/pages/appointments/AppointmentsPage'));
 const PrintAppointmentPage = lazy(() => import('@/pages/appointments/PrintAppointmentPage'));
+const PrescriptionPage = lazy(() => import('@/pages/appointments/PrescriptionPage'));
+const PrintPrescriptionPage = lazy(() => import('@/pages/appointments/PrintPrescriptionPage'));
 import { useRefreshTokenMutation } from '@/services/authApi';
 import { useAppDispatch, useAppSelector } from '@/hooks/store';
 import { logout, setInitializing } from '@/features/auth/authSlice';
@@ -136,17 +139,27 @@ function App() {
                             <Route path="appointments" element={<AppointmentsPage />} />
                         </Route>
 
+                        {/* Only the visit's own doctor writes it; the API checks which visit. */}
+                        <Route element={<RoleRoute allow={['doctor']} />}>
+                            <Route path="appointments/:id/prescription" element={<PrescriptionPage />} />
+                        </Route>
+
                         <Route path="profile" element={<ProfilePage />} />
 
                         {/* Admin-only. The API enforces this independently. */}
                         <Route element={<RoleRoute allow={['admin']} />}>
                             <Route path="departments" element={<TestCategoriesPage />} />
                             <Route path="referrers" element={<ReferrersPage />} />
-                            <Route path="commission" element={<CommissionPayoutsPage />} />
+                            <Route path="commission" element={<CommissionPayoutsPage key="lab" kind="lab" />} />
+                            <Route
+                                path="commission/appointments"
+                                element={<CommissionPayoutsPage key="appointment" kind="appointment" />}
+                            />
                             <Route path="reports/financial" element={<FinancialReportPage />} />
                             <Route path="reports/commission" element={<CommissionReportPage />} />
                             <Route path="reports/dues" element={<DuesReportPage />} />
                             <Route path="users" element={<UsersPage />} />
+                            <Route path="users/new" element={<AddUserPage />} />
                             <Route path="activity" element={<ActivityPage />} />
                             <Route path="settings" element={<SettingsPage />} />
                         </Route>
@@ -156,6 +169,9 @@ function App() {
                     <Route element={<RoleRoute allow={['admin', 'receptionist']} />}>
                         <Route path="billing/:id/print" element={<PrintInvoicePage />} />
                         <Route path="appointments/:id/print" element={<PrintAppointmentPage />} />
+                    </Route>
+                    <Route element={<RoleRoute allow={['admin', 'receptionist', 'doctor']} />}>
+                        <Route path="appointments/:id/prescription/print" element={<PrintPrescriptionPage />} />
                     </Route>
                 </Route>
 

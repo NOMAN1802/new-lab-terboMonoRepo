@@ -66,7 +66,16 @@ const NAVIGATION: NavItem[] = [
         ],
     },
     { key: 'nav.referrers', to: '/referrers', icon: 'user-round-search', roles: ['admin'] },
-    { key: 'nav.commission', to: '/commission', icon: 'banknote', roles: ['admin'] },
+    {
+        key: 'nav.commission',
+        to: '/commission',
+        icon: 'banknote',
+        roles: ['admin'],
+        children: [
+            { key: 'nav.doctorCommission', to: '/commission' },
+            { key: 'nav.appointmentFeePayment', to: '/commission/appointments' },
+        ],
+    },
     {
         key: 'nav.reports',
         to: '/reports/patients',
@@ -79,7 +88,16 @@ const NAVIGATION: NavItem[] = [
             { key: 'nav.outstandingPayments', to: '/reports/dues', roles: ['admin'] },
         ],
     },
-    { key: 'nav.users', to: '/users', icon: 'shield-check', roles: ['admin'] },
+    {
+        key: 'nav.users',
+        to: '/users',
+        icon: 'shield-check',
+        roles: ['admin'],
+        children: [
+            { key: 'nav.allUsers', to: '/users' },
+            { key: 'nav.addUser', to: '/users/new' },
+        ],
+    },
     { key: 'nav.activity', to: '/activity', icon: 'clock', roles: ['admin'] },
     { key: 'nav.settings', to: '/settings', icon: 'settings', roles: ['admin'] },
 ];

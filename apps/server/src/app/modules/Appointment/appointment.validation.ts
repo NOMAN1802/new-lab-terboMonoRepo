@@ -34,6 +34,16 @@ const cancelAppointmentValidationSchema = z.object({
   }),
 });
 
+const rescheduleAppointmentValidationSchema = z.object({
+  body: z.object({
+    schedule: objectId('Schedule'),
+    slotIndex: z
+      .number({ required_error: 'Slot is required' })
+      .int('Slot must be a whole number')
+      .min(0, 'Invalid slot'),
+  }),
+});
+
 const approveCancelValidationSchema = z.object({
   body: z.object({
     note: z.string().trim().max(300).optional(),
@@ -60,6 +70,7 @@ const acknowledgeOutcomesValidationSchema = z.object({
 export const AppointmentValidations = {
   createAppointmentValidationSchema,
   cancelAppointmentValidationSchema,
+  rescheduleAppointmentValidationSchema,
   approveCancelValidationSchema,
   rejectCancelValidationSchema,
   acknowledgeOutcomesValidationSchema,

@@ -112,7 +112,7 @@ app.use('/api/v1', routes);
 app.get('/', (_req: Request, res: Response) => {
   res.status(httpStatus.OK).json({
     success: true,
-    message: '🔬 New Lab Diagnostic & Consultation Centre API',
+    message: '🔬 ByteSpate Diagnostic API',
   });
 });
 

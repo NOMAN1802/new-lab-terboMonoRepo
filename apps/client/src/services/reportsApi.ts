@@ -60,6 +60,8 @@ export type ReferralCommissionRow = {
     collected: number;
     /** Commission is earned on settlement, so this counts paid invoices only. */
     commissionAccrued: number;
+    /** The part of commissionAccrued that is the doctor's share of appointment fees. */
+    appointmentShareAccrued?: number;
     /** Accrued on paper but not payable yet — the patient still owes. */
     commissionAwaiting: number;
     commissionPaid: number;

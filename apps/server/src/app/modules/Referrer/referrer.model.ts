@@ -35,6 +35,8 @@ const ReferrerSchema = new Schema<TReferrer>(
       min: 0,
       default: 0,
     },
+    // One referrer entry per doctor. Sparse, so outside referrers are unaffected.
+    doctor: { type: Schema.Types.ObjectId, ref: 'Doctor', unique: true, sparse: true },
     isActive: { type: Boolean, default: true },
     isDeleted: { type: Boolean, default: false },
     createdBy: { type: Schema.Types.ObjectId, ref: 'User' },

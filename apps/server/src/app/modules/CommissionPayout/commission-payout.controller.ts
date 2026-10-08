@@ -38,8 +38,10 @@ const getPayout = catchAsync(async (req, res) => {
 });
 
 const getPendingCommission = catchAsync(async (req, res) => {
+  const kind = req.query.kind;
   const result = await CommissionPayoutServices.getPendingCommission(
-    req.params.referrerId
+    req.params.referrerId,
+    kind === 'lab' || kind === 'appointment' ? kind : undefined
   );
   sendResponse(res, {
     statusCode: httpStatus.OK,

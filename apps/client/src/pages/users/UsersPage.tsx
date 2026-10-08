@@ -1,5 +1,4 @@
 import { useMemo, useState } from 'react';
-import { useSearchParams } from 'react-router-dom';
 import type { CSSProperties } from 'react';
 import dayjs from 'dayjs';
 import Loader from '@/components/common/Loader';
@@ -13,8 +12,6 @@ import Button from '@/components/ui/Button';
 import DataTable from '@/components/ui/DataTable';
 import DetailRow from '@/components/ui/DetailRow';
 import Icon from '@/components/ui/Icon';
-import type { IconName } from '@/components/ui/Icon';
-import InlineAlert from '@/components/ui/InlineAlert';
 import Modal from '@/components/ui/Modal';
 import PageHero from '@/components/ui/PageHero';
 import Pagination from '@/components/ui/Pagination';
@@ -22,26 +19,11 @@ import { useT } from '@/i18n/useLanguage';
 import Panel from '@/components/ui/Panel';
 import RoleBadge from '@/components/ui/RoleBadge';
 import Select from '@/components/ui/Select';
-import TextField from '@/components/ui/TextField';
 import { apiErrorMessage } from '@/lib/format';
-import { useCreateUserMutation, useDeleteUserMutation, useGetUsersQuery, useUpdateUserMutation } from '@/services/userApi';
-import type { CreateUserInput, User } from '@/services/userApi';
+import { useDeleteUserMutation, useGetUsersQuery, useUpdateUserMutation } from '@/services/userApi';
+import type { User } from '@/services/userApi';
 import { useAppSelector } from '@/hooks/store';
 import type { UserRole } from '@/lib/token';
-
-const EMPTY_FORM: CreateUserInput = {
-    name: '',
-    email: '',
-    mobileNumber: '',
-    password: '',
-    role: 'receptionist',
-};
-
-const ROLE_OPTIONS = [
-    { label: 'Receptionist', value: 'receptionist' },
-    { label: 'Admin', value: 'admin' },
-    { label: 'Doctor', value: 'doctor' },
-];
 
 const iconAction = (bg: string, fg: string, enabled: boolean): CSSProperties => ({
     display: 'inline-flex',
@@ -58,32 +40,17 @@ const iconAction = (bg: string, fg: string, enabled: boolean): CSSProperties => 
     transition: 'var(--transition-control)',
 });
 
-/** Label with a small brand-tinted glyph, as the design system's forms use. */
-const legend = (icon: IconName, text: string) => (
-    <span style={{ display: 'inline-flex', alignItems: 'center', gap: 8 }}>
-        <Icon name={icon} size={15} color="var(--brand)" />
-        {text}
-    </span>
-);
-
 const UsersPage = () => {
     const currentUser = useAppSelector((state) => state.auth.user);
-    // The Doctors page sends people here to add a doctor.
-    const [searchParams] = useSearchParams();
-    const startAsDoctor = searchParams.get('add') === 'doctor';
     const [confirmRequest, setConfirmRequest] = useState<ConfirmRequest | null>(null);
     const [page, setPage] = useState(1);
     const t = useT();
     const [viewing, setViewing] = useState<User | null>(null);
-    const [isAddOpen, setAddOpen] = useState(false);
-    const [formData, setFormData] = useState<CreateUserInput>(startAsDoctor ? { ...EMPTY_FORM, role: 'doctor' } : EMPTY_FORM);
-    const [result, setResult] = useState<{ tone: 'success' | 'error'; text: string } | null>(null);
     const [updatingUserId, setUpdatingUserId] = useState<string | null>(null);
 
     const { data, isLoading, isError, refetch } = useGetUsersQuery({ page, limit: 20 });
     const [deleteUser] = useDeleteUserMutation();
     const [updateUser, { isLoading: isUpdating }] = useUpdateUserMutation();
-    const [createUser, { isLoading: isCreating }] = useCreateUserMutation();
 
     // You never administer your own account from this table.
     const allUsers = data?.users;
@@ -129,49 +96,6 @@ const UsersPage = () => {
         }
     };
 
-    const openAdd = () => {
-        setFormData(EMPTY_FORM);
-        setResult(null);
-        setAddOpen(true);
-    };
-
-    const setField = (key: keyof CreateUserInput) => (event: { target: { value: string } }) => {
-        setFormData((current) => ({ ...current, [key]: event.target.value }));
-        setResult(null);
-    };
-
-    const handleCreateUser = async () => {
-        if (!formData.name.trim()) return setResult({ tone: 'error', text: 'Name is required.' });
-        if (!formData.mobileNumber.trim()) return setResult({ tone: 'error', text: 'Mobile number is required.' });
-        if (formData.password.trim().length < 6) {
-            return setResult({ tone: 'error', text: 'Password must be at least 6 characters.' });
-        }
-        if (formData.role === 'doctor') {
-            if (!formData.specialty?.trim()) return setResult({ tone: 'error', text: 'Specialty is required for a doctor.' });
-            if (formData.consultationFee === undefined || formData.consultationFee < 0) {
-                return setResult({ tone: 'error', text: 'Enter the doctor consultation fee in taka.' });
-            }
-        }
-
-        try {
-            // Doctor details only travel with a doctor.
-            const { specialty, degrees, consultationFee, ...account } = formData;
-            await createUser(
-                formData.role === 'doctor'
-                    ? { ...account, specialty: specialty?.trim(), degrees: degrees?.trim() || undefined, consultationFee }
-                    : account
-            ).unwrap();
-            setResult({
-                tone: 'success',
-                text: formData.role === 'doctor' ? 'Doctor created. They can sign in to approve schedules.' : 'User created.',
-            });
-            refetch();
-            setTimeout(() => setAddOpen(false), 1200);
-        } catch (error) {
-            setResult({ tone: 'error', text: apiErrorMessage(error, 'Failed to create user. Please try again.') });
-        }
-    };
-
     const totalPages = Math.max(1, Math.ceil(data.total / data.limit));
     const showing = users.length;
 
@@ -181,31 +105,6 @@ const UsersPage = () => {
                 eyebrow="Administration"
                 title={t('users.title')}
                 description={t('users.subtitle')}
-                action={
-                    <button
-                        type="button"
-                        onClick={openAdd}
-                        style={{
-                            display: 'inline-flex',
-                            alignItems: 'center',
-                            gap: 8,
-                            height: 44,
-                            padding: '0 22px',
-                            border: '1px solid rgba(255,255,255,.28)',
-                            borderRadius: 'var(--radius-md)',
-                            background: 'rgba(255,255,255,.14)',
-                            color: '#fff',
-                            fontFamily: 'var(--font-sans)',
-                            fontSize: 14,
-                            fontWeight: 600,
-                            cursor: 'pointer',
-                            transition: 'var(--transition-control)',
-                        }}
-                    >
-                        <Icon name="plus" size={18} />
-                        {t('jsx.addUser')}
-                    </button>
-                }
             />
 
             <Panel padding="0">
@@ -357,104 +256,6 @@ const UsersPage = () => {
                         </div>
                     </div>
                 )}
-            </Modal>
-
-            <Modal
-                open={isAddOpen}
-                onClose={() => setAddOpen(false)}
-                title={t('ttl.addUser')}
-                subtitle={t('ttl.createAccount')}
-                width={640}
-                footer={
-                    <>
-                        <Button variant="secondary" icon="x" disabled={isCreating} onClick={() => setAddOpen(false)}>
-                            {t('ctrl.cancel')}
-                        </Button>
-                        <Button icon="check" loading={isCreating} onClick={handleCreateUser}>
-                            {isCreating ? 'Creating...' : 'Create user'}
-                        </Button>
-                    </>
-                }
-            >
-                <div style={{ display: 'flex', flexDirection: 'column', gap: 18 }}>
-                    {result && (
-                        <InlineAlert tone={result.tone} onDismiss={() => setResult(null)}>
-                            {result.text}
-                        </InlineAlert>
-                    )}
-                    <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(min(240px, 100%),1fr))', gap: 18 }}>
-                        <TextField label={legend('user-round', 'Full name')} value={formData.name} onChange={setField('name')} placeholder={t('ph.fullName')} />
-                        <TextField
-                            label={legend('phone', 'Mobile number')}
-                            type="tel"
-                            value={formData.mobileNumber}
-                            onChange={setField('mobileNumber')}
-                            placeholder="01XXXXXXXXX"
-                        />
-                    </div>
-                    <TextField
-                        label={legend('mail', 'Email address')}
-                        type="email"
-                        value={formData.email}
-                        onChange={setField('email')}
-                        placeholder="you@example.com"
-                    />
-                    <TextField
-                        label={legend('key-round', 'Password')}
-                        type="password"
-                        value={formData.password}
-                        onChange={setField('password')}
-                        placeholder={t('ph.min6')}
-                        hint={t('hint.userPassword')}
-                    />
-                    <Select
-                        label={legend('shield-check', 'Role')}
-                        value={formData.role}
-                        onChange={setField('role')}
-                        options={ROLE_OPTIONS}
-                        hint={t('hint.role')}
-                    />
-
-                    {formData.role === 'doctor' && (
-                        <div
-                            style={{
-                                display: 'grid',
-                                gridTemplateColumns: 'repeat(auto-fit, minmax(min(220px, 100%),1fr))',
-                                gap: 18,
-                                background: 'var(--surface-sunken)',
-                                borderRadius: 'var(--radius-md)',
-                                padding: 18,
-                            }}
-                        >
-                            <TextField
-                                label="Specialty"
-                                value={formData.specialty ?? ''}
-                                onChange={setField('specialty')}
-                                placeholder="Medicine, Cardiology..."
-                            />
-                            <TextField
-                                label="Degrees"
-                                optional
-                                value={formData.degrees ?? ''}
-                                onChange={setField('degrees')}
-                                placeholder="MBBS, FCPS"
-                            />
-                            <TextField
-                                label="Consultation fee (৳)"
-                                type="number"
-                                min={0}
-                                step="1"
-                                value={formData.consultationFee ?? ''}
-                                onChange={(event) => {
-                                    const raw = event.target.value;
-                                    setFormData((current) => ({ ...current, consultationFee: raw === '' ? undefined : Number(raw) }));
-                                    setResult(null);
-                                }}
-                                hint="Default for new schedules. Each schedule keeps the fee it was created with."
-                            />
-                        </div>
-                    )}
-                </div>
             </Modal>
 
             <ConfirmModal request={confirmRequest} onClose={() => setConfirmRequest(null)} />

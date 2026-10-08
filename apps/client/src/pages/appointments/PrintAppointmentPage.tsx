@@ -4,7 +4,7 @@ import { useReactToPrint } from 'react-to-print';
 import ErrorState from '@/components/common/ErrorState';
 import Loader from '@/components/common/Loader';
 import BrandLogo from '@/components/brand/BrandLogo';
-import { BRAND_BLUE, BRAND_GREEN } from '@/lib/brand';
+import { BRAND_RED, BRAND_GREEN } from '@/lib/brand';
 import { CENTRE } from '@/lib/centre';
 import { formatDate, money } from '@/lib/format';
 import { useGetAppointmentQuery } from '@/services/appointmentsApi';
@@ -81,7 +81,7 @@ const PrintAppointmentPage = () => {
                                 </address>
                             )}
                         </div>
-                        <div style={{ height: 2.5, marginTop: 8, background: `linear-gradient(90deg, ${BRAND_BLUE}, ${BRAND_GREEN})` }} />
+                        <div style={{ height: 2.5, marginTop: 8, background: `linear-gradient(90deg, ${BRAND_RED}, ${BRAND_GREEN})` }} />
                     </header>
 
                     <h1 style={{ marginTop: 14, textAlign: 'center', fontSize: 15, fontWeight: 700, letterSpacing: '.08em', textTransform: 'uppercase' }}>

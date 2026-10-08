@@ -25,6 +25,8 @@ export type TReferrer = {
   defaultCommissionType: TCommissionType;
   /** A percentage when type is 'percent', a taka figure when 'fixed'. */
   defaultCommissionValue: number;
+  /** Set when this referrer is one of the centre's own doctors. */
+  doctor?: Types.ObjectId;
   isActive?: boolean;
   isDeleted?: boolean;
   createdBy?: Types.ObjectId;

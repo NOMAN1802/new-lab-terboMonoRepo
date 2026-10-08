@@ -10,6 +10,7 @@ import { doctorScheduleRoutes } from '../modules/DoctorSchedule/doctor-schedule.
 import { invoiceRoutes } from '../modules/Invoice/invoice.route';
 import { patientRoutes } from '../modules/Patient/patient.route';
 import { paymentRoutes } from '../modules/Payment/payment.route';
+import { prescriptionRoutes } from '../modules/Prescription/prescription.route';
 import { referrerRoutes } from '../modules/Referrer/referrer.route';
 import { reportsRoutes } from '../modules/Reports/reports.route';
 import { testCategoryRoutes } from '../modules/TestCategory/test-category.route';
@@ -28,6 +29,7 @@ const moduleRoutes = [
   { path: '/doctors', route: doctorRoutes },
   { path: '/schedules', route: doctorScheduleRoutes },
   { path: '/appointments', route: appointmentRoutes },
+  { path: '/prescriptions', route: prescriptionRoutes },
   { path: '/invoices', route: invoiceRoutes },
   { path: '/payments', route: paymentRoutes },
   { path: '/commission-payouts', route: commissionPayoutRoutes },

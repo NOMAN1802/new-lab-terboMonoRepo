@@ -31,6 +31,11 @@ export type Appointment = {
         paidAmount: number;
         dueAmount: number;
         isCancelled?: boolean;
+        /** Admin only: the doctor's share of the fee, and whether it has been paid out. */
+        commissionAmount?: number;
+        commissionStatus?: 'pending' | 'paid';
+        /** Admin only: the doctor's Referrers entry the share is owed to. */
+        referrer?: string;
     };
     /** Only on the response to a booking: the booking stood but taking money failed. */
     paymentWarning?: string;
@@ -56,6 +61,11 @@ export type Appointment = {
     };
     notes?: string;
     cancelReason?: string;
+    /** Where it was before the last move. */
+    rescheduledFrom?: { date: string; startTime: string; serialNo: number };
+    rescheduledAt?: string;
+    /** Set once the doctor has written a prescription for the visit. */
+    prescriptionNumber?: string;
     checkedInAt?: string;
     completedAt?: string;
     createdAt: string;
@@ -178,6 +188,12 @@ export const appointmentsApi = baseApi.injectEndpoints({
             invalidatesTags: billingTags,
         }),
 
+        rescheduleAppointment: builder.mutation<Appointment, { id: string; schedule: string; slotIndex: number }>({
+            query: ({ id, ...body }) => ({ url: `/appointments/${id}/reschedule`, method: 'POST', body }),
+            transformResponse: (r: ApiResponse<Appointment>) => r.data,
+            invalidatesTags: workTags,
+        }),
+
         noShowAppointment: builder.mutation<Appointment, string>({
             query: (id) => ({ url: `/appointments/${id}/no-show`, method: 'POST' }),
             transformResponse: (r: ApiResponse<Appointment>) => r.data,
@@ -249,6 +265,7 @@ export const {
     useCreateAppointmentMutation,
     useCheckInAppointmentMutation,
     useCancelAppointmentMutation,
+    useRescheduleAppointmentMutation,
     useNoShowAppointmentMutation,
     useCompleteAppointmentMutation,
     useRequestCancelAppointmentMutation,

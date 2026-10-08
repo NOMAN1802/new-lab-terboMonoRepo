@@ -1,7 +1,7 @@
 # Phase 1 — Pre-Migration Audit Report
 
 **Date:** 2026-09-16  
-**Project:** new_lab (New Lab Diagnostic & Consultation Centre)  
+**Project:** new_lab (ByteSpate Diagnostic)  
 **Apps audited:** `server` (Express + TypeScript) · `client` (React 19 + Vite + TypeScript)
 
 ---

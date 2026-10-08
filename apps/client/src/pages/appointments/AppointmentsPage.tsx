@@ -7,6 +7,7 @@ import ReasonModal from '@/components/common/ReasonModal';
 import type { ReasonRequest } from '@/components/common/ReasonModal';
 import StatusBadge from '@/components/common/StatusBadge';
 import RefundModal from '@/pages/billing/RefundModal';
+import RescheduleModal from './RescheduleModal';
 import type { RefundTarget } from '@/pages/billing/RefundModal';
 import Button from '@/components/ui/Button';
 import InlineAlert from '@/components/ui/InlineAlert';
@@ -59,6 +60,7 @@ const AppointmentsPage = () => {
     const [reasonRequest, setReasonRequest] = useState<ReasonRequest | null>(null);
     // Admin shortcut: every request waiting for an answer, on any day.
     const [refundTarget, setRefundTarget] = useState<RefundTarget | null>(null);
+    const [moving, setMoving] = useState<Appointment | null>(null);
     const [requestsOnly, setRequestsOnly] = useState(isAdmin && searchParams.get('requests') === '1');
     // Desk shortcut: patients whose appointment the doctor cancelled and who still have to be told.
     const [callbacksOnly, setCallbacksOnly] = useState(!isDoctor && searchParams.get('callbacks') === '1');
@@ -167,7 +169,7 @@ const AppointmentsPage = () => {
                     </h2>
                     <p style={{ marginTop: 4, fontSize: 13, color: 'var(--text-muted)' }}>
                         {isDoctor
-                            ? 'Patients who have checked in are ready to be seen. Mark each consultation complete when done.'
+                            ? 'Call each patient in, write the prescription, then complete the visit. You can reschedule a booked patient or ask for a cancellation.'
                             : 'Check patients in as they arrive. Serial numbers follow the booked time.'}
                     </p>
                 </div>
@@ -325,6 +327,28 @@ const AppointmentsPage = () => {
                                                               >
                                                                   {invoice.invoiceNumber}
                                                               </Link>
+                                                              {isAdmin && !invoice.isCancelled && invoice.commissionAmount !== undefined && (
+                                                                  invoice.commissionAmount > 0 ? (
+                                                                      invoice.commissionStatus === 'paid' ? (
+                                                                          <span style={{ fontSize: 11, color: 'var(--success-strong)' }}>
+                                                                              Doctor {money(invoice.commissionAmount)} · paid out
+                                                                          </span>
+                                                                      ) : (
+                                                                          <Link
+                                                                              to={`/commission/appointments?referrer=${invoice.referrer ?? ''}`}
+                                                                              style={{ fontSize: 11, color: 'var(--warning-strong)' }}
+                                                                              title={invoice.paymentStatus === 'paid' ? 'Pay it from Doctor Payment → Appointment fee payment' : 'Payable once the patient has paid'}
+                                                                          >
+                                                                              Doctor {money(invoice.commissionAmount)} ·{' '}
+                                                                              {invoice.paymentStatus === 'paid' ? 'to pay' : 'after payment'}
+                                                                          </Link>
+                                                                      )
+                                                                  ) : (
+                                                                      <Link to="/doctors" style={{ fontSize: 11, color: 'var(--text-faint)' }}>
+                                                                          Doctor share not set
+                                                                      </Link>
+                                                                  )
+                                                              )}
                                                           </>
                                                       )}
                                                   </div>
@@ -416,19 +440,44 @@ const AppointmentsPage = () => {
                                                     Take {money(appointment.invoice.dueAmount)}
                                                 </Button>
                                             )}
-                                        {isDesk && appointment.status === 'booked' && (
+                                        {appointment.status === 'booked' && (
                                             <Button
                                                 size="sm"
                                                 icon="check"
                                                 onClick={() =>
                                                     run(
                                                         () => checkIn(appointment._id).unwrap(),
-                                                        `${appointment.patientInfo.name} checked in`,
-                                                        'Could not check in'
+                                                        isDoctor ? `${appointment.patientInfo.name} called in` : `${appointment.patientInfo.name} checked in`,
+                                                        isDoctor ? 'Could not call the patient in' : 'Could not check in'
                                                     )
                                                 }
                                             >
-                                                Check in
+                                                {isDoctor ? 'Call in' : 'Check in'}
+                                            </Button>
+                                        )}
+                                        {isDoctor && (appointment.status === 'checked_in' || appointment.status === 'completed') && (
+                                            <Button
+                                                size="sm"
+                                                variant={appointment.prescriptionNumber ? 'secondary' : 'primary'}
+                                                icon="file-text"
+                                                onClick={() => navigate(`/appointments/${appointment._id}/prescription`)}
+                                            >
+                                                {appointment.prescriptionNumber ? 'Edit prescription' : 'Write prescription'}
+                                            </Button>
+                                        )}
+                                        {appointment.prescriptionNumber && appointment.status !== 'cancelled' && (
+                                            <Button
+                                                size="sm"
+                                                variant="secondary"
+                                                icon="printer"
+                                                onClick={() => navigate(`/appointments/${appointment._id}/prescription/print`)}
+                                            >
+                                                Rx
+                                            </Button>
+                                        )}
+                                        {appointment.status === 'booked' && appointment.cancellation?.status !== 'pending' && (
+                                            <Button size="sm" variant="secondary" icon="calendar" onClick={() => setMoving(appointment)}>
+                                                Reschedule
                                             </Button>
                                         )}
                                         {(isDoctor || isAdmin) && appointment.status === 'checked_in' && (
@@ -446,7 +495,7 @@ const AppointmentsPage = () => {
                                                 Complete
                                             </Button>
                                         )}
-                                        {isDesk && appointment.status === 'booked' && (
+                                        {appointment.status === 'booked' && (
                                             <Button
                                                 size="sm"
                                                 variant="secondary"
@@ -461,7 +510,7 @@ const AppointmentsPage = () => {
                                                 No-show
                                             </Button>
                                         )}
-                                        {isDesk && (appointment.status === 'booked' || appointment.status === 'checked_in') && (
+                                        {(appointment.status === 'booked' || appointment.status === 'checked_in') && (
                                             appointment.cancellation?.status === 'pending' ? (
                                                 isAdmin && (
                                                     <>
@@ -515,6 +564,8 @@ const AppointmentsPage = () => {
             <ReasonModal request={reasonRequest} busy={isCancelling || isRequesting || isRefusing} onClose={() => setReasonRequest(null)} />
 
             <RefundModal target={refundTarget} defaultCancel onClose={() => setRefundTarget(null)} />
+
+            <RescheduleModal appointment={moving} onClose={() => setMoving(null)} />
         </>
     );
 };

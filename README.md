@@ -1,4 +1,4 @@
-# New Lab Diagnostic & Consultation Centre
+# ByteSpate Diagnostic
 
 Diagnostic Centre Billing & Management System built as a **Turborepo + pnpm monorepo**. Patient registration, test booking, cash billing with partial payments, referrer discount and commission tracking, diagnostic report handling, and an admin-only financial module.
 
